@@ -42,6 +42,8 @@ router.get('/stream', async (req, res) => {
             headers: headers,
             responseType: 'stream',
             timeout: 30000,
+            maxRedirects: 5,
+            validateStatus: (status) => status < 500, // Accept any status < 500
         });
 
         // Forward headers dari upstream
@@ -63,9 +65,17 @@ router.get('/stream', async (req, res) => {
 
     } catch (error) {
         console.error('[Proxy] Error:', error.message);
+        console.error('[Proxy] URL was:', req.query.url);
+        
+        if (error.response) {
+            console.error('[Proxy] Response status:', error.response.status);
+            console.error('[Proxy] Response data:', error.response.data);
+        }
+        
         res.status(500).json({ 
             error: 'Proxy failed',
-            message: error.message 
+            message: error.message,
+            url: req.query.url 
         });
     }
 });
