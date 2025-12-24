@@ -14,7 +14,7 @@ export function useStreams(contentId: string, type: 'movie' | 'series', season?:
     const fetchStreams = async () => {
       setLoading(true);
       setError(null);
-      setStreams([]);
+      setStreams([]); // Clear cache - always fresh data
 
       try {
         // Step 1: Fetch Vidlink (fast)
@@ -46,11 +46,11 @@ export function useStreams(contentId: string, type: 'movie' | 'series', season?:
     };
 
     if (contentId) {
-      fetchStreams();
+      fetchStreams(); // Always fetch fresh - no cache
     }
 
     return () => { mounted = false; };
-  }, [contentId, type, season, episode]);
+  }, [contentId, type, season, episode]); // Refetch on any param change
 
   return {
     data: streams,
@@ -65,7 +65,7 @@ export function useProviders() {
   return useQuery({
     queryKey: ['providers'],
     queryFn: () => providerService.loadProviders(),
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 0, // No cache - always fresh
   });
 }
 

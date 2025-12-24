@@ -41,7 +41,7 @@ export function useSearchContent(query: string) {
     queryKey: ['search', query],
     queryFn: () => tmdbService.search(query),
     enabled: query.length > 0,
-    staleTime: 5 * 60 * 1000, // Cache results for 5 minutes
+    staleTime: 0, // No cache - always fresh
   });
 }
 
