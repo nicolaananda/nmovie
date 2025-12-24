@@ -15,8 +15,8 @@ const CACHE_TTL = 0; // 0 = No cache, always fresh
 exports.getStreams = async (req, res) => {
     try {
         const { tmdbId, mediaType, season, episode } = req.body;
-        // Filter based on requested mode
-        const mode = req.body.mode || 'all'; // 'all', 'vidlink', 'others'
+        // Filter based on requested mode (default: vidlink only)
+        const mode = req.body.mode || 'vidlink'; // 'all', 'vidlink', 'others'
 
         // Check cache (DISABLED - always fetch fresh)
         // const cacheKey = `${tmdbId}:${mediaType}:${season || ''}:${episode || ''}:${mode}`;

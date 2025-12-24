@@ -17,24 +17,20 @@ export function useStreams(contentId: string, type: 'movie' | 'series', season?:
       setStreams([]); // Clear cache - always fresh data
 
       try {
-        // Step 1: Fetch Vidlink (fast)
+        // Fetch Vidlink only (other scrapers disabled)
         const vidlinkData = await providerService.getStreams(contentId, type, season, episode, 'vidlink');
         if (mounted) {
           setStreams(vidlinkData || []);
-          // If we got Vidlink streams, we can stop "main" loading, but show "background" loading
           setLoading(false);
-          setLoadingOthers(true);
         }
 
-        // Step 2: Fetch others (slow) - regardless of Vidlink success, as per user request to "fetch others below"
-        const otherData = await providerService.getStreams(contentId, type, season, episode, 'others');
-
-        if (mounted) {
-          setStreams(prev => {
-            // Avoid duplicates if any overlap occurs (though backend separates them)
-            return [...prev, ...(otherData || [])];
-          });
-        }
+        // Step 2: Fetch others - DISABLED (only Vidlink now)
+        // const otherData = await providerService.getStreams(contentId, type, season, episode, 'others');
+        // if (mounted) {
+        //   setStreams(prev => {
+        //     return [...prev, ...(otherData || [])];
+        //   });
+        // }
       } catch (err) {
         if (mounted) setError(err);
       } finally {
