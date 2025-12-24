@@ -107,7 +107,7 @@ npm install
 **Solution**:
 ```bash
 # Use a different port
-npm run dev -- --port 3001
+npm run dev -- --port 7001
 ```
 
 Or kill the process using port 3000:

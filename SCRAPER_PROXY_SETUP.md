@@ -27,14 +27,14 @@ npm start
 npm run dev
 ```
 
-Server akan berjalan di `http://localhost:3001`
+Server akan berjalan di `http://localhost:7001`
 
 ### 3. Update Web App .env
 
 Pastikan file `.env` di folder `web` memiliki:
 
 ```env
-VITE_SCRAPER_PROXY_URL=http://localhost:3001
+VITE_SCRAPER_PROXY_URL=http://localhost:7001
 ```
 
 ### 4. Start Web App
@@ -63,7 +63,7 @@ Web App receives streams
 
 ### Request
 ```javascript
-POST http://localhost:3001/api/scrapers/streams
+POST http://localhost:7001/api/scrapers/streams
 Content-Type: application/json
 
 {
@@ -95,12 +95,12 @@ Content-Type: application/json
 
 ### Test Server Health
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:7001/health
 ```
 
 ### Test Streams Endpoint
 ```bash
-curl -X POST http://localhost:3001/api/scrapers/streams \
+curl -X POST http://localhost:7001/api/scrapers/streams \
   -H "Content-Type: application/json" \
   -d '{
     "tmdbId": "575265",
@@ -111,7 +111,7 @@ curl -X POST http://localhost:3001/api/scrapers/streams \
 ## Troubleshooting
 
 ### Server tidak start
-- Check apakah port 3001 sudah digunakan
+- Check apakah port 7001 sudah digunakan
 - Install dependencies: `npm install`
 - Check Node.js version (need v14+)
 

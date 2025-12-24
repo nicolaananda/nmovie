@@ -151,9 +151,11 @@ For more details, see [PROVIDER_INTEGRATION.md](./PROVIDER_INTEGRATION.md)
 
 - **README.md** - This file (general information)
 - **SETUP.md** - Detailed setup guide
+- **POSTGRESQL_VPS_SETUP.md** - PostgreSQL setup guide for VPS
 - **MIGRATION_GUIDE.md** - Technical migration details
 - **PROVIDER_INTEGRATION.md** - Provider integration guide
 - **RINGKASAN_INDONESIA.md** - Indonesian summary
+- **setup-postgres.sh** - Automated PostgreSQL setup script
 
 ## Contributing
 

@@ -188,7 +188,7 @@ https://raw.githubusercontent.com/tapframe/nuvio-providers/refs/heads/main
 
 **Solusi:**
 ```bash
-npm run dev -- --port 3001
+npm run dev -- --port 7001
 ```
 
 ### Problem: "Module not found"

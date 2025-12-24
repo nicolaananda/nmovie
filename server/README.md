@@ -21,7 +21,7 @@ npm run dev
 npm start
 ```
 
-Server akan berjalan di `http://localhost:3001`
+Server akan berjalan di `http://localhost:7001`
 
 ## API Endpoints
 
@@ -73,7 +73,7 @@ Response:
 ## Environment Variables
 
 ```env
-PORT=3001  # Server port (default: 3001)
+PORT=7001  # Server port (default: 7001)
 ```
 
 ## Security

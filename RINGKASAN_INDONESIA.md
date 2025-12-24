@@ -235,7 +235,7 @@ npm install
 
 ### Port 3000 sudah dipakai
 ```bash
-npm run dev -- --port 3001
+npm run dev -- --port 7001
 ```
 
 ## 📊 Statistik Project

@@ -5,7 +5,23 @@ const subtitleRoutes = require('./routes/subtitleRoutes');
 
 const app = express();
 
-app.use(cors());
+// CORS configuration
+const corsOptions = {
+    origin: [
+        'http://localhost:3000',           // Local development
+        'http://localhost:5173',           // Vite default
+        'https://ghzm.us',                 // Production domain
+        'http://ghzm.us',                  // Production domain (non-SSL)
+        'https://www.ghzm.us',             // Production domain with www
+        'http://www.ghzm.us',              // Production domain with www (non-SSL)
+        'https://be-mov.nicola.id',        // Backend domain
+        'http://be-mov.nicola.id',         // Backend domain (non-SSL)
+    ],
+    credentials: true,
+    optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.get('/health', (req, res) => {

@@ -10,7 +10,7 @@ npm install
 npm start
 ```
 
-Server akan berjalan di `http://localhost:3001`
+Server akan berjalan di `http://localhost:7001`
 
 ### Terminal 2: Start Web App
 
@@ -28,7 +28,7 @@ Pastikan file `web/.env` ada dengan:
 
 ```env
 VITE_TMDB_API_KEY=your_tmdb_api_key
-VITE_SCRAPER_PROXY_URL=http://localhost:3001
+VITE_SCRAPER_PROXY_URL=http://localhost:7001
 ```
 
 ## Test Flow
@@ -51,7 +51,7 @@ npm start
 ```
 
 ### Web app tidak connect
-- Check `.env` file ada `VITE_SCRAPER_PROXY_URL=http://localhost:3001`
+- Check `.env` file ada `VITE_SCRAPER_PROXY_URL=http://localhost:7001`
 - Restart web app setelah update `.env`
 
 ### No streams muncul

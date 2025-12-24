@@ -16,7 +16,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Configure axios defaults
-axios.defaults.baseURL = 'http://localhost:3001/api'; // Make sure this matches backend
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:7001/api'; // Backend runs on port 7001
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
