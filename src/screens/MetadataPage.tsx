@@ -74,34 +74,12 @@ export default function MetadataPage() {
   const handlePlay = () => {
     if (!content) return;
 
-    const params = new URLSearchParams();
-    params.set('title', content.name);
-
-    if (content.imdb_id) {
-      params.set('imdbId', content.imdb_id);
-    }
-
-    params.set('mediaType', streamType);
-
-    if (isSeries) {
-      params.set('season', String(selectedSeason));
-      params.set('episode', String(selectedEpisode));
-    }
-
-    // Pass all subtitles as JSON
-    if (subtitles && subtitles.length > 0) {
-      params.set('subtitles', JSON.stringify(subtitles));
-    }
-
+    // If streams are available, use primary stream
     if (primaryStream?.url) {
-      params.set('url', primaryStream.url);
-      // Add type parameter if it's an embed
-      if (primaryStream.type === 'embed') {
-        params.set('type', 'embed');
-      }
-      navigate(`/player?${params.toString()}`);
+      handlePlayStream(primaryStream.url, primaryStream.type);
     } else {
-      navigate(`/streams/${type}/${id}?title=${encodeURIComponent(content.name)}`);
+      // Show message if no streams available
+      console.warn('[MetadataPage] No streams available to play');
     }
   };
 
