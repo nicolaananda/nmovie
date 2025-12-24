@@ -1,0 +1,26 @@
+{
+  "name": "nuvio-scraper-proxy",
+  "version": "1.0.0",
+  "description": "Proxy server to execute Nuvio scrapers",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.0",
+    "axios": "^1.6.0",
+    "bcryptjs": "^3.0.3",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
+    "vm2": "^3.9.19"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11",
+    "prisma": "5.10.0"
+  }
+}

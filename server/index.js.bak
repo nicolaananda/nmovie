@@ -1,0 +1,558 @@
+/**
+ * Nuvio Scraper Proxy Server
+ * 
+ * This server executes JavaScript scrapers from GitHub in a Node.js environment
+ * and returns streams to the web application.
+ * 
+ * Run: node server/index.js
+ * Or: npm run server
+ */
+
+const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+const { VM } = require('vm2');
+const cheerio = require('cheerio');
+const path = require('path');
+const CryptoJS = require('crypto-js');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// CORS middleware
+app.use(cors());
+app.use(express.json());
+
+// GitHub repository URL
+const GITHUB_REPO_URL = 'https://raw.githubusercontent.com/tapframe/nuvio-providers/refs/heads/main';
+const MANIFEST_URL = `${GITHUB_REPO_URL}/manifest.json`;
+
+// Cache for scrapers
+const scraperCache = new Map();
+const scraperCodeCache = new Map();
+
+/**
+ * Load manifest from GitHub
+ */
+async function loadManifest() {
+  try {
+    const response = await axios.get(MANIFEST_URL, {
+      timeout: 10000,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('[Server] Failed to load manifest:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Load scraper code from GitHub
+ */
+async function loadScraperCode(filename) {
+  if (scraperCodeCache.has(filename)) {
+    return scraperCodeCache.get(filename);
+  }
+
+  try {
+    const url = `${GITHUB_REPO_URL}/${filename}`;
+    console.log('[Server] Loading scraper:', url);
+    
+    const response = await axios.get(url, {
+      timeout: 15000,
+    });
+
+    const code = response.data;
+    scraperCodeCache.set(filename, code);
+    return code;
+  } catch (error) {
+    console.error(`[Server] Failed to load scraper ${filename}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Execute scraper in sandboxed environment
+ */
+function executeScraper(code, tmdbId, mediaType, seasonNum, episodeNum) {
+  return new Promise((resolve, reject) => {
+    try {
+      // Wrap code to expose getStreams function
+      const wrappedCode = `
+        ${code}
+        
+        // Export getStreams if using module.exports
+        if (typeof module !== 'undefined' && module.exports && module.exports.getStreams) {
+          global.getStreams = module.exports.getStreams;
+        }
+      `;
+
+      // Create VM sandbox with all necessary APIs
+      const vm = new VM({
+        timeout: 45000, // 45 seconds timeout (scrapers need time)
+        sandbox: {
+          // Provide fetch (using axios)
+          fetch: (url, options = {}) => {
+            return new Promise((fetchResolve, fetchReject) => {
+              axios({
+                url,
+                method: options.method || 'GET',
+                headers: options.headers || {},
+                data: options.body,
+                timeout: 25000,
+              })
+                .then((response) => {
+                  fetchResolve({
+                    ok: response.status >= 200 && response.status < 300,
+                    status: response.status,
+                    statusText: response.statusText,
+                    text: () => Promise.resolve(String(response.data)),
+                    json: () => Promise.resolve(response.data),
+                    headers: response.headers,
+                  });
+                })
+                .catch((error) => {
+                  fetchResolve({
+                    ok: false,
+                    status: error.response?.status || 500,
+                    statusText: error.message,
+                    text: () => Promise.resolve(''),
+                    json: () => Promise.resolve(null),
+                  });
+                });
+            });
+          },
+          // Provide cheerio for HTML parsing
+          cheerio: cheerio,
+          // Console for logging
+          console: {
+            log: (...args) => console.log('[Scraper]', ...args),
+            warn: (...args) => console.warn('[Scraper]', ...args),
+            error: (...args) => console.error('[Scraper]', ...args),
+          },
+          // Provide Promise
+          Promise: Promise,
+          // Provide module for compatibility
+          module: { exports: {} },
+          // Provide global context
+          global: {},
+          // Browser APIs that scrapers might need
+          btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
+          atob: (str) => Buffer.from(str, 'base64').toString('binary'),
+          URLSearchParams: URLSearchParams,
+          URL: URL,
+          TextEncoder: TextEncoder,
+          TextDecoder: TextDecoder,
+          // Provide require for scrapers that need it (limited)
+          require: (moduleName) => {
+            // Only allow specific modules
+            const allowedModules = {
+              'crypto-js': CryptoJS,
+            };
+            if (allowedModules[moduleName]) {
+              return allowedModules[moduleName];
+            }
+            throw new Error(`Module ${moduleName} is not allowed in sandbox`);
+          },
+          // Provide CryptoJS directly
+          CryptoJS: CryptoJS,
+        },
+      });
+
+      // Execute scraper code
+      vm.run(wrappedCode);
+
+      // Get getStreams function from global or module.exports
+      let getStreams;
+      try {
+        getStreams = vm.run('global.getStreams || (typeof module !== "undefined" && module.exports && module.exports.getStreams ? module.exports.getStreams : null)');
+      } catch (e) {
+        // Try alternative way
+        const context = vm.run('({ getStreams: global.getStreams || (typeof module !== "undefined" && module.exports && module.exports.getStreams ? module.exports.getStreams : null) })');
+        getStreams = context.getStreams;
+      }
+
+      if (!getStreams || typeof getStreams !== 'function') {
+        throw new Error('getStreams function not found in scraper');
+      }
+
+      // Call getStreams (returns Promise)
+      const result = getStreams(tmdbId, mediaType, seasonNum, episodeNum);
+
+      // Handle Promise result
+      if (result && typeof result.then === 'function') {
+        result
+          .then((streams) => {
+            resolve(Array.isArray(streams) ? streams : []);
+          })
+          .catch((error) => {
+            reject(error);
+          });
+      } else {
+        resolve(Array.isArray(result) ? result : []);
+      }
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/**
+ * Health check endpoint
+ */
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+/**
+ * Get streams endpoint
+ */
+app.post('/api/scrapers/streams', async (req, res) => {
+  try {
+    const { tmdbId, mediaType, season, episode } = req.body;
+
+    if (!tmdbId || !mediaType) {
+      return res.status(400).json({ error: 'tmdbId and mediaType are required' });
+    }
+
+    console.log('[Server] Requesting streams:', { tmdbId, mediaType, season, episode });
+
+    // Load manifest
+    const manifest = await loadManifest();
+    if (!manifest || !manifest.scrapers) {
+      return res.status(500).json({ error: 'Failed to load scraper manifest' });
+    }
+
+    // Get enabled scrapers
+    const enabledScrapers = manifest.scrapers.filter(
+      (s) => s.enabled && s.supportedTypes.includes(mediaType)
+    );
+
+    if (enabledScrapers.length === 0) {
+      return res.json({ streams: [] });
+    }
+
+    // Prioritize VidLink scraper first; if it returns streams, skip others
+    const vidlinkScrapers = enabledScrapers.filter(
+      (s) =>
+        (s.id && s.id.toLowerCase().includes('vidlink')) ||
+        (s.name && s.name.toLowerCase().includes('vidlink')) ||
+        (s.filename && s.filename.toLowerCase().includes('vidlink')),
+    );
+    const otherScrapers = enabledScrapers.filter(
+      (s) => !vidlinkScrapers.includes(s),
+    );
+
+    const allStreams = [];
+    const errors = [];
+
+    async function runScraperBatches(scrapers) {
+      const batchSize = 5;
+      for (let i = 0; i < scrapers.length; i += batchSize) {
+        const batch = scrapers.slice(i, i + batchSize);
+
+        const batchPromises = batch.map(async (scraper) => {
+          try {
+            const code = await loadScraperCode(scraper.filename);
+            if (!code) {
+              errors.push(`Failed to load ${scraper.name}`);
+              return [];
+            }
+
+            const streams = await executeScraper(
+              code,
+              tmdbId,
+              mediaType,
+              season,
+              episode,
+            );
+
+            if (streams && Array.isArray(streams) && streams.length > 0) {
+              // Add scraper info to streams
+              const enrichedStreams = streams
+                .map((stream) => {
+                  // Extract URL from various possible fields
+                  const url =
+                    stream.url || stream.src || stream.link || stream.playlist;
+
+                  if (!url) {
+                    console.warn(
+                      `[Server] Stream from ${scraper.name} missing URL:`,
+                      stream,
+                    );
+                    return null;
+                  }
+
+                  return {
+                    url,
+                    title:
+                      stream.title ||
+                      stream.name ||
+                      stream.label ||
+                      `${scraper.name} Stream`,
+                    name:
+                      stream.name ||
+                      stream.title ||
+                      `${scraper.name} Stream`,
+                    quality:
+                      stream.quality ||
+                      extractQuality(
+                        stream.title || stream.name || '',
+                      ),
+                    size: stream.size,
+                    lang: stream.lang || stream.language || 'en',
+                    description: stream.description,
+                    provider: scraper.id,
+                    providerName: scraper.name,
+                    headers: stream.headers || {},
+                    // Keep original properties
+                    ...stream,
+                  };
+                })
+                .filter((s) => s !== null && s.url); // Only keep streams with URL
+
+              if (enrichedStreams.length > 0) {
+                console.log(
+                  `[Server] ${scraper.name} returned ${enrichedStreams.length} valid streams`,
+                );
+              }
+
+              return enrichedStreams;
+            }
+            return [];
+          } catch (error) {
+            console.error(
+              `[Server] Scraper ${scraper.name} failed:`,
+              error.message,
+            );
+            errors.push(`${scraper.name}: ${error.message}`);
+            return [];
+          }
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        batchResults.forEach((streams) => {
+          if (streams && streams.length > 0) {
+            allStreams.push(...streams);
+          }
+        });
+
+        // If we are running VidLink scrapers and already have streams, stop early
+        if (scrapers === vidlinkScrapers && allStreams.length > 0) {
+          console.log(
+            `[Server] VidLink returned ${allStreams.length} streams, skipping other scrapers`,
+          );
+          return;
+        }
+      }
+    }
+
+    // Run VidLink first, then others only if needed
+    if (vidlinkScrapers.length > 0) {
+      console.log(
+        `[Server] Prioritizing VidLink scrapers: ${vidlinkScrapers
+          .map((s) => s.name)
+          .join(', ')}`,
+      );
+      await runScraperBatches(vidlinkScrapers);
+    }
+
+    if (allStreams.length === 0) {
+      await runScraperBatches(otherScrapers);
+    }
+
+    console.log(
+      `[Server] Found ${allStreams.length} streams from ${enabledScrapers.length} scrapers`,
+    );
+    
+    // Log stream details for debugging
+    if (allStreams.length > 0) {
+      console.log('[Server] Stream details:');
+      allStreams.forEach((stream, index) => {
+        console.log(`  ${index + 1}. ${stream.providerName || 'Unknown'}: ${stream.title || stream.name} (${stream.quality || 'Unknown quality'})`);
+      });
+    }
+
+    res.json({
+      streams: allStreams,
+      errors: errors.length > 0 ? errors : undefined,
+      totalScrapers: enabledScrapers.length,
+      successfulScrapers: enabledScrapers.length - errors.length,
+    });
+  } catch (error) {
+    console.error('[Server] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Helper function to extract quality from text
+function extractQuality(text) {
+  if (!text) return '';
+  const qualityMatch = text.match(/(\d+)p|(\d+)k|4K|1080p|720p|480p/i);
+  return qualityMatch ? qualityMatch[0].toUpperCase() : '';
+}
+
+/**
+ * Subtitle endpoint - fetch from SubDL Stremio addon
+ * Default URL from manifest (with ID and EN languages):
+ * https://subdl.strem.top/b3RuM0VFc3RSS3VCcTNTY05LQllyR1lhMWN6NlI0WUMvSUQsRU4vaGlJbmNsdWRlLw==/manifest.json
+ */
+const SUBSOURCE_ADDON_BASE =
+  process.env.SUBSOURCE_ADDON_URL ||
+  'https://subdl.strem.top/b3RuM0VFc3RSS3VCcTNTY05LQllyR1lhMWN6NlI0WUMvSUQsRU4vaGlJbmNsdWRlLw==/';
+
+// Simple SRT → VTT converter (for browser HTML5 tracks)
+function convertSrtToVtt(srtText) {
+  if (!srtText) return 'WEBVTT\n\n';
+
+  let vtt = srtText.replace(/\r\n/g, '\n');
+
+  // Remove BOM if present
+  if (vtt.charCodeAt(0) === 0xfeff) {
+    vtt = vtt.slice(1);
+  }
+
+  // Replace comma in timestamps: 00:00:01,000 → 00:00:01.000
+  vtt = vtt.replace(/(\d+:\d+:\d+),(\d+)/g, '$1.$2');
+
+  if (!vtt.startsWith('WEBVTT')) {
+    vtt = 'WEBVTT\n\n' + vtt;
+  }
+
+  return vtt;
+}
+
+// Proxy endpoint that fetches original subtitle file, converts to VTT, and serves it
+app.get('/api/subtitles/proxy', async (req, res) => {
+  const { url } = req.query;
+
+  if (!url) {
+    return res.status(400).send('Missing url parameter');
+  }
+
+  try {
+    console.log('[Server] Proxying subtitle file from:', url);
+
+    const resp = await axios.get(url, {
+      responseType: 'text',
+      timeout: 15000,
+      headers: {
+        Accept: '*/*',
+      },
+    });
+
+    let text = resp.data || '';
+    const contentType = resp.headers['content-type'] || '';
+
+    // If already VTT, just passthrough; otherwise convert from SRT-like
+    if (!/text\/vtt/i.test(contentType) && !text.startsWith('WEBVTT')) {
+      text = convertSrtToVtt(text);
+    }
+
+    res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+    res.send(text);
+  } catch (err) {
+    console.error('[Server] Subtitle proxy error:', err.message);
+    res.status(500).send('Failed to proxy subtitle');
+  }
+});
+
+app.post('/api/subtitles', async (req, res) => {
+  const { imdbId, mediaType, season, episode } = req.body;
+  
+  console.log('[Server] Requesting subtitles:', { imdbId, mediaType, season, episode });
+
+  if (!imdbId) {
+    return res.status(400).json({ error: 'Missing imdbId' });
+  }
+
+  try {
+    // Clean IMDB ID (ensure it has 'tt' prefix)
+    const cleanImdbId = imdbId.startsWith('tt') ? imdbId : `tt${imdbId}`;
+
+    // Build Stremio addon URL format
+    // Movies: /subtitles/movie/tt123456.json
+    // Series: /subtitles/series/tt123456:1:1.json
+    let stremioId = cleanImdbId;
+    const type = mediaType === 'series' || mediaType === 'tv' ? 'series' : 'movie';
+    
+    if (type === 'series' && season !== undefined && episode !== undefined) {
+      stremioId = `${cleanImdbId}:${season}:${episode}`;
+    }
+
+    const encodedId = encodeURIComponent(stremioId);
+    const addonUrl = `${SUBSOURCE_ADDON_BASE}subtitles/${type}/${encodedId}.json`;
+
+    console.log(`[Server] Fetching subtitles from SubDL addon: ${addonUrl}`);
+
+    const response = await axios.get(addonUrl, {
+      timeout: 15000,
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    const data = response.data;
+    const rawSubs = data?.subtitles || (Array.isArray(data) ? data : []);
+
+    console.log(`[Server] Found ${rawSubs.length} raw subtitles from SubDL addon`);
+
+    // Normalize subtitles
+    const subtitles = rawSubs
+      .filter((s) => s && s.url)
+      .map((s, idx) => {
+        const originalUrl = s.url;
+
+        const rawLang = String(s.lang || s.language || '')
+          .trim()
+          .toLowerCase();
+
+        let code = 'en';
+        if (rawLang.includes('indo') || rawLang === 'id' || rawLang === 'ind') {
+          code = 'id';
+        } else if (rawLang.startsWith('en') || rawLang.includes('english') || rawLang === 'en') {
+          code = 'en';
+        } else if (rawLang.startsWith('it') || rawLang.includes('ital') || rawLang === 'it') {
+          code = 'it';
+        } else if (rawLang.length === 2 && /^[a-z]{2}$/.test(rawLang)) {
+          code = rawLang;
+        } else if (rawLang) {
+          code = rawLang;
+        }
+
+        // Build proxied VTT URL through our backend
+        const proxiedUrl = `${req.protocol}://${req.get(
+          'host',
+        )}/api/subtitles/proxy?url=${encodeURIComponent(originalUrl)}`;
+
+        return {
+          id: s.id || `sub-${idx}`,
+          url: proxiedUrl,
+          originalUrl,
+          lang: code,
+          fps: s.fps,
+          addon: 'subdl',
+          addonName: 'SubDL',
+          format: (s.format || 'srt').toLowerCase(),
+        };
+      });
+
+    console.log(`[Server] Returning ${subtitles.length} normalized subtitles`);
+    console.log(`[Server] Languages:`, subtitles.map((s) => s.lang));
+    res.json({ subtitles });
+  } catch (error) {
+    console.error('[Server] Error fetching subtitles:', error.response?.status || error.message);
+    res.status(500).json({ 
+      error: 'Failed to fetch subtitles from Stremio addon', 
+      details: error.response?.data || error.message 
+    });
+  }
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Nuvio Scraper Proxy Server running on http://localhost:${PORT}`);
+  console.log(`📡 Ready to execute scrapers from GitHub`);
+  console.log(`🎬 Subtitle proxy ready (SubSource.net)`);
+});
+
