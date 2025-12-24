@@ -36,6 +36,22 @@ exports.getStreams = async (req, res) => {
 
         console.log('[Server] Requesting streams:', { tmdbId, mediaType, season, episode });
 
+        const allStreams = [];
+        const errors = [];
+
+        // Add Vidrock streams (local scraper - always fast)
+        try {
+            const vidrockScraper = require('../scrapers/vidrock');
+            const vidrockStreams = await vidrockScraper.getStreams(tmdbId, mediaType, season, episode);
+            if (vidrockStreams && vidrockStreams.length > 0) {
+                console.log(`[Server] Vidrock returned ${vidrockStreams.length} streams`);
+                allStreams.push(...vidrockStreams);
+            }
+        } catch (error) {
+            console.error('[Server] Vidrock scraper error:', error.message);
+            errors.push('Vidrock: ' + error.message);
+        }
+
         // Load manifest
         const manifest = await loadManifest();
         if (!manifest || !manifest.scrapers) {
@@ -72,12 +88,11 @@ exports.getStreams = async (req, res) => {
             scrapersToRun = enabledScrapers;
         }
 
-        if (scrapersToRun.length === 0) {
+        if (scrapersToRun.length === 0 && allStreams.length === 0) {
             return res.json({ streams: [] });
         }
 
-        const allStreams = [];
-        const errors = [];
+        // allStreams and errors already initialized above
 
         async function runScraperBatches(scrapers) {
             const batchSize = 5;
