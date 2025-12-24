@@ -50,9 +50,18 @@ Streams Found: ${streams?.length || 0}
     }
   }, [contentId, mediaType, season, episode, streams]);
 
-  const handlePlayStream = (streamUrl: string) => {
-    const playerUrl = `/player?url=${encodeURIComponent(streamUrl)}&title=${encodeURIComponent(title)}`;
-    navigate(playerUrl);
+  const handlePlayStream = (streamUrl: string, streamType?: string) => {
+    const params = new URLSearchParams({
+      url: streamUrl,
+      title: title,
+    });
+    
+    // Add type parameter if it's an embed
+    if (streamType === 'embed') {
+      params.append('type', 'embed');
+    }
+    
+    navigate(`/player?${params.toString()}`);
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -178,26 +187,36 @@ Streams Found: ${streams?.length || 0}
         <div className="space-y-4">
           {streams
             .sort((a, b) => {
-              // Sort Vidlink/VidLink to top
+              // Sort Vidrock and Vidlink/VidLink to top
               const aName = (a.providerName || a.provider || '').toLowerCase();
               const bName = (b.providerName || b.provider || '').toLowerCase();
+              const aIsVidrock = aName.includes('vidrock');
+              const bIsVidrock = bName.includes('vidrock');
               const aIsVidlink = aName.includes('vidlink');
               const bIsVidlink = bName.includes('vidlink');
+              
+              // Vidrock first
+              if (aIsVidrock && !bIsVidrock) return -1;
+              if (!aIsVidrock && bIsVidrock) return 1;
+              // Then Vidlink
               if (aIsVidlink && !bIsVidlink) return -1;
               if (!aIsVidlink && bIsVidlink) return 1;
               return 0;
             })
             .map((stream, index) => {
-              const isVidlink = (stream.providerName || stream.provider || '').toLowerCase().includes('vidlink');
+              const streamName = (stream.providerName || stream.provider || '').toLowerCase();
+              const isVidrock = streamName.includes('vidrock');
+              const isVidlink = streamName.includes('vidlink');
+              const isPriority = isVidrock || isVidlink;
               return (
                 <div
                   key={index}
-                  className={`p-4 rounded-lg transition-all hover:scale-[1.02] ${isVidlink ? 'border border-primary-500/50 relative overflow-hidden' : ''}`}
+                  className={`p-4 rounded-lg transition-all hover:scale-[1.02] ${isPriority ? 'border border-primary-500/50 relative overflow-hidden' : ''}`}
                   style={{ backgroundColor: currentTheme.colors.cardBackground }}
                 >
-                  {isVidlink && (
+                  {isPriority && (
                     <div className="absolute top-0 right-0 bg-primary-600 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-bl-lg shadow-lg">
-                      Recommended
+                      {isVidrock ? 'Fast' : 'Recommended'}
                     </div>
                   )}
                   <div className="flex items-start justify-between gap-4">
@@ -218,6 +237,17 @@ Streams Found: ${streams?.length || 0}
                         >
                           {getQualityBadge(stream)}
                         </span>
+                        {stream.type === 'embed' && (
+                          <span
+                            className="px-2 py-1 rounded text-xs font-medium"
+                            style={{
+                              backgroundColor: '#10b981' + '20',
+                              color: '#10b981'
+                            }}
+                          >
+                            Embed Player
+                          </span>
+                        )}
                         {stream.addonName && (
                           <span
                             className="px-2 py-1 rounded text-xs"
@@ -257,7 +287,7 @@ Streams Found: ${streams?.length || 0}
                     </div>
 
                     <button
-                      onClick={() => handlePlayStream(stream.url || '')}
+                      onClick={() => handlePlayStream(stream.url || '', stream.type)}
                       disabled={!stream.url}
                       className="flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{

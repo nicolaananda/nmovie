@@ -12,6 +12,7 @@ export default function PlayerPage() {
   const url = searchParams.get('url');
   const title = searchParams.get('title') || 'Video Player';
   const subtitlesJson = searchParams.get('subtitles');
+  const streamType = searchParams.get('type'); // 'embed' or 'file' (default)
 
   // Parse subtitles from JSON and convert to tracks
   const tracks = useMemo(() => {
@@ -97,24 +98,36 @@ export default function PlayerPage() {
       <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black">
         {url ? (
           <div className="w-full h-full">
-            <ReactPlayer
-              url={url}
-              playing={playing}
-              controls={true}
-              width="100%"
-              height="100%"
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
-              config={{
-                file: {
-                  tracks,
-                  attributes: {
-                    crossOrigin: "anonymous" // crucial for subtitles
-                  }
-                },
-              }}
-              style={{ position: 'absolute', top: 0, left: 0 }}
-            />
+            {streamType === 'embed' ? (
+              // Iframe embed (Vidrock, etc.)
+              <iframe
+                src={url}
+                className="w-full h-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                allowFullScreen
+                style={{ position: 'absolute', top: 0, left: 0 }}
+              />
+            ) : (
+              // Regular video file (ReactPlayer)
+              <ReactPlayer
+                url={url}
+                playing={playing}
+                controls={true}
+                width="100%"
+                height="100%"
+                onPlay={() => setPlaying(true)}
+                onPause={() => setPlaying(false)}
+                config={{
+                  file: {
+                    tracks,
+                    attributes: {
+                      crossOrigin: "anonymous" // crucial for subtitles
+                    }
+                  },
+                }}
+                style={{ position: 'absolute', top: 0, left: 0 }}
+              />
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center text-gray-500 space-y-4 p-8">

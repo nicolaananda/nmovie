@@ -95,13 +95,17 @@ export default function MetadataPage() {
 
     if (primaryStream?.url) {
       params.set('url', primaryStream.url);
+      // Add type parameter if it's an embed
+      if (primaryStream.type === 'embed') {
+        params.set('type', 'embed');
+      }
       navigate(`/player?${params.toString()}`);
     } else {
       navigate(`/streams/${type}/${id}?title=${encodeURIComponent(content.name)}`);
     }
   };
 
-  const handlePlayStream = (streamUrl: string) => {
+  const handlePlayStream = (streamUrl: string, streamType?: string) => {
     if (!content) return;
     const title = isSeries
       ? `${content.name} - S${selectedSeason}E${selectedEpisode}`
@@ -126,6 +130,11 @@ export default function MetadataPage() {
     // Pass all subtitles as JSON
     if (subtitles && subtitles.length > 0) {
       params.set('subtitles', JSON.stringify(subtitles));
+    }
+
+    // Add type parameter if it's an embed
+    if (streamType === 'embed') {
+      params.set('type', 'embed');
     }
 
     navigate(`/player?${params.toString()}`);
@@ -344,7 +353,7 @@ export default function MetadataPage() {
                         <div className="text-[10px] text-gray-500 mt-0.5 max-w-sm truncate">{stream.description || stream.addonName || 'Direct Stream'}</div>
                       </div>
                       <button
-                        onClick={() => handlePlayStream(stream.url || stream.sources?.[0] || '')}
+                        onClick={() => handlePlayStream(stream.url || stream.sources?.[0] || '', stream.type)}
                         className="px-4 py-1.5 rounded-md bg-white text-black text-xs font-bold hover:bg-primary-500 hover:text-white transition-colors"
                       >
                         Play
