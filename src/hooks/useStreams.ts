@@ -17,20 +17,10 @@ export function useStreams(contentId: string, type: 'movie' | 'series', season?:
       setStreams([]); // Clear cache - always fresh data
 
       try {
-        // Step 1: Fetch Vidlink (fast)
-        const vidlinkData = await providerService.getStreams(contentId, type, season, episode, 'vidlink');
+        // Fetch all streams (Vidrock only now)
+        const data = await providerService.getStreams(contentId, type, season, episode, 'all');
         if (mounted) {
-          setStreams(vidlinkData || []);
-          setLoading(false);
-          setLoadingOthers(true); // Show loading for others
-        }
-
-        // Step 2: Fetch others (additional scrapers)
-        const otherData = await providerService.getStreams(contentId, type, season, episode, 'others');
-        if (mounted) {
-          setStreams(prev => {
-            return [...prev, ...(otherData || [])];
-          });
+          setStreams(data || []);
         }
       } catch (err) {
         if (mounted) setError(err);
