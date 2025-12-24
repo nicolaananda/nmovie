@@ -60,7 +60,7 @@ nano .env
 
 Add:
 ```env
-DATABASE_URL="postgresql://nmovie_admin:your_strong_password@localhost:5432/nuvio_db?schema=public"
+DATABASE_URL="postgresql://nmovie_admin:@Nandha20@localhost:5432/nuvio_db?schema=public"
 PORT=7001
 JWT_SECRET="your-secret-key"
 ```

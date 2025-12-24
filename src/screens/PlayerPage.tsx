@@ -9,37 +9,9 @@ export default function PlayerPage() {
   const navigate = useNavigate();
   const [playing, setPlaying] = useState(true);
 
-  const originalUrl = searchParams.get('url');
+  const url = searchParams.get('url');
   const title = searchParams.get('title') || 'Video Player';
   const subtitlesJson = searchParams.get('subtitles');
-
-  // Proxy strategy: Let ReactPlayer handle HLS/m3u8 directly (better compatibility)
-  // Only proxy non-streaming URLs if needed
-  const url = useMemo(() => {
-    if (!originalUrl) return null;
-    
-    // Don't proxy HLS/m3u8 streams - ReactPlayer handles these better
-    // It uses native video element which has better CORS handling
-    const isHLS = originalUrl.includes('.m3u8') || originalUrl.includes('m3u8');
-    
-    if (isHLS) {
-      // Return original URL - ReactPlayer will handle CORS internally
-      return originalUrl;
-    }
-    
-    // For other formats, check if proxy needed
-    const needsProxy = originalUrl.includes('vodvidl.site') || 
-                       originalUrl.includes('storm.') ||
-                       originalUrl.includes('videostr.net');
-    
-    if (needsProxy) {
-      const apiUrl = import.meta.env.VITE_API_URL || 'https://be-mov.nicola.id/api';
-      const baseUrl = apiUrl.replace('/api', '');
-      return `${baseUrl}/api/proxy/stream?url=${encodeURIComponent(originalUrl)}`;
-    }
-    
-    return originalUrl;
-  }, [originalUrl]);
 
   // Parse subtitles from JSON and convert to tracks
   const tracks = useMemo(() => {
