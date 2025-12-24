@@ -21,6 +21,14 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    host: true, // Allow external access
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      'ghzm.us',
+      'www.ghzm.us',
+      '.nicola.id', // Allow all nicola.id subdomains
+    ],
     // Proxy untuk handle CORS
     proxy: {
       '/api/proxy': {
