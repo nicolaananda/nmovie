@@ -38,7 +38,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
       download: 'true',
       nextbutton: 'true',
       episodeselector: 'true',
-      lang: 'en', // Can be changed to 'id' for Indonesian
+      lang: 'id', // Indonesian subtitles by default
     });
     
     const finalUrl = `${embedUrl}?${params.toString()}`;

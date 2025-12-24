@@ -52,6 +52,20 @@ exports.getStreams = async (req, res) => {
             errors.push('Vidrock: ' + error.message);
         }
 
+        // REMOTE SCRAPERS DISABLED - Only using Vidrock
+        // To re-enable remote scrapers (VidLink, etc.), uncomment the code below
+        
+        // Return only Vidrock streams
+        const responseData = {
+            streams: allStreams,
+            count: allStreams.length,
+            errors: errors.length > 0 ? errors : undefined,
+        };
+
+        console.log('[Server] Returning Vidrock streams only (remote scrapers disabled)');
+        return res.json(responseData);
+
+        /* REMOTE SCRAPERS CODE (DISABLED)
         // Load manifest
         const manifest = await loadManifest();
         if (!manifest || !manifest.scrapers) {
@@ -206,6 +220,8 @@ exports.getStreams = async (req, res) => {
 
         console.log('[Server] Returning fresh streams (no cache)');
         res.json(responseData);
+        END OF REMOTE SCRAPERS CODE */
+
     } catch (error) {
         console.error('[Server] Error:', error);
         res.status(500).json({ error: error.message });
