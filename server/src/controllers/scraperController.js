@@ -8,9 +8,9 @@ const SUBSOURCE_ADDON_BASE = rawBase.endsWith('manifest.json')
     ? rawBase.replace('manifest.json', '')
     : rawBase.endsWith('/') ? rawBase : `${rawBase}/`;
 
-// In-memory cache for streams
+// In-memory cache for streams (DISABLED - always fetch fresh)
 const streamCache = new Map();
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL = 0; // 0 = No cache, always fresh
 
 exports.getStreams = async (req, res) => {
     try {
@@ -18,17 +18,17 @@ exports.getStreams = async (req, res) => {
         // Filter based on requested mode
         const mode = req.body.mode || 'all'; // 'all', 'vidlink', 'others'
 
-        // Check cache
-        const cacheKey = `${tmdbId}:${mediaType}:${season || ''}:${episode || ''}:${mode}`;
-        if (streamCache.has(cacheKey)) {
-            const { data, timestamp } = streamCache.get(cacheKey);
-            if (Date.now() - timestamp < CACHE_TTL) {
-                console.log(`[Server] Serving cached streams for ${cacheKey}`);
-                return res.json(data);
-            } else {
-                streamCache.delete(cacheKey); // Expired
-            }
-        }
+        // Check cache (DISABLED - always fetch fresh)
+        // const cacheKey = `${tmdbId}:${mediaType}:${season || ''}:${episode || ''}:${mode}`;
+        // if (streamCache.has(cacheKey)) {
+        //     const { data, timestamp } = streamCache.get(cacheKey);
+        //     if (Date.now() - timestamp < CACHE_TTL) {
+        //         console.log(`[Server] Serving cached streams for ${cacheKey}`);
+        //         return res.json(data);
+        //     } else {
+        //         streamCache.delete(cacheKey); // Expired
+        //     }
+        // }
 
         if (!tmdbId || !mediaType) {
             return res.status(400).json({ error: 'Missing parameters' });
@@ -184,11 +184,12 @@ exports.getStreams = async (req, res) => {
             successfulScrapers: enabledScrapers.length - errors.length,
         };
 
-        // Cache the result
-        if (allStreams.length > 0) {
-            streamCache.set(cacheKey, { data: responseData, timestamp: Date.now() });
-        }
+        // Cache the result (DISABLED - no caching)
+        // if (allStreams.length > 0) {
+        //     streamCache.set(cacheKey, { data: responseData, timestamp: Date.now() });
+        // }
 
+        console.log('[Server] Returning fresh streams (no cache)');
         res.json(responseData);
     } catch (error) {
         console.error('[Server] Error:', error);
