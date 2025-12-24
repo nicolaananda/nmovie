@@ -16,29 +16,49 @@ router.get('/stream', async (req, res) => {
 
         console.log('[Proxy] Streaming from:', url);
 
-        // Parse headers dari query jika ada
+        // Parse URL and extract embedded headers
+        let cleanUrl = url;
         let headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
         };
 
-        // Decode headers dari URL jika ada
+        // Extract and remove headers from URL query params
         try {
             const urlObj = new URL(url);
             const headersParam = urlObj.searchParams.get('headers');
+            const hostParam = urlObj.searchParams.get('host');
+            
             if (headersParam) {
                 const customHeaders = JSON.parse(headersParam);
-                headers = { ...headers, ...customHeaders };
+                console.log('[Proxy] Extracted headers from URL:', customHeaders);
+                
+                // Map lowercase header names to proper case
+                if (customHeaders.referer) headers['Referer'] = customHeaders.referer;
+                if (customHeaders.origin) headers['Origin'] = customHeaders.origin;
+                if (customHeaders['user-agent']) headers['User-Agent'] = customHeaders['user-agent'];
+                
+                // Remove headers param from URL for the actual request
+                urlObj.searchParams.delete('headers');
             }
+            
+            if (hostParam) {
+                // Remove host param as well
+                urlObj.searchParams.delete('host');
+            }
+            
+            cleanUrl = urlObj.toString();
+            console.log('[Proxy] Clean URL:', cleanUrl);
+            console.log('[Proxy] Request headers:', headers);
         } catch (e) {
-            // Ignore header parsing errors
+            console.error('[Proxy] Error parsing URL:', e.message);
         }
 
         // Request ke video provider
         const response = await axios({
             method: 'GET',
-            url: url,
+            url: cleanUrl,
             headers: headers,
             responseType: 'stream',
             timeout: 30000,
