@@ -9,9 +9,24 @@ export default function PlayerPage() {
   const navigate = useNavigate();
   const [playing, setPlaying] = useState(true);
 
-  const url = searchParams.get('url');
+  const originalUrl = searchParams.get('url');
   const title = searchParams.get('title') || 'Video Player';
   const subtitlesJson = searchParams.get('subtitles');
+
+  // Proxy video URL through backend to bypass CORS
+  const url = useMemo(() => {
+    if (!originalUrl) return null;
+    
+    // Get API base URL from environment
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:7001/api';
+    const baseUrl = apiUrl.replace('/api', '');
+    
+    // Encode original URL
+    const encodedUrl = encodeURIComponent(originalUrl);
+    
+    // Return proxied URL
+    return `${baseUrl}/api/proxy/stream?url=${encodedUrl}`;
+  }, [originalUrl]);
 
   // Parse subtitles from JSON and convert to tracks
   const tracks = useMemo(() => {
