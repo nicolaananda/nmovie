@@ -151,7 +151,9 @@ For more details, see [PROVIDER_INTEGRATION.md](./PROVIDER_INTEGRATION.md)
 
 - **README.md** - This file (general information)
 - **SETUP.md** - Detailed setup guide
+- **DEPLOYMENT_GUIDE.md** - Production deployment guide (LiteSpeed/Apache/Nginx)
 - **POSTGRESQL_VPS_SETUP.md** - PostgreSQL setup guide for VPS
+- **POSTGRES_QUICKSTART.md** - PostgreSQL quick reference
 - **MIGRATION_GUIDE.md** - Technical migration details
 - **PROVIDER_INTEGRATION.md** - Provider integration guide
 - **RINGKASAN_INDONESIA.md** - Indonesian summary
