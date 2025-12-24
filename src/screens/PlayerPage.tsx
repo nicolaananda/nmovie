@@ -13,11 +13,21 @@ export default function PlayerPage() {
   const title = searchParams.get('title') || 'Video Player';
   const subtitlesJson = searchParams.get('subtitles');
 
-  // Proxy external streams through backend to bypass CORS
+  // Proxy strategy: Let ReactPlayer handle HLS/m3u8 directly (better compatibility)
+  // Only proxy non-streaming URLs if needed
   const url = useMemo(() => {
     if (!originalUrl) return null;
     
-    // If URL is from known CORS-restricted providers, proxy it
+    // Don't proxy HLS/m3u8 streams - ReactPlayer handles these better
+    // It uses native video element which has better CORS handling
+    const isHLS = originalUrl.includes('.m3u8') || originalUrl.includes('m3u8');
+    
+    if (isHLS) {
+      // Return original URL - ReactPlayer will handle CORS internally
+      return originalUrl;
+    }
+    
+    // For other formats, check if proxy needed
     const needsProxy = originalUrl.includes('vodvidl.site') || 
                        originalUrl.includes('storm.') ||
                        originalUrl.includes('videostr.net');
