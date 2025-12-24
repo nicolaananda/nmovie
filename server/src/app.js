@@ -9,7 +9,7 @@ const app = express();
 const corsOptions = {
     origin: [
         'http://localhost:3000',           // Local development
-        'http://localhost:5173',           // Vite default
+        'http://localhost:4173',           // Vite default
         'https://ghzm.us',                 // Production domain
         'http://ghzm.us',                  // Production domain (non-SSL)
         'https://www.ghzm.us',             // Production domain with www
