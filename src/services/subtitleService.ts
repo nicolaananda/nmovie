@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Subtitle } from '../types/metadata';
 
 // Backend proxy URL (same as scraper proxy)
-const PROXY_BASE_URL = (import.meta as any).env.VITE_SCRAPER_PROXY_URL || 'https://be-mov.nicola.id';
+const PROXY_BASE_URL = (import.meta as any).env.VITE_SCRAPER_PROXY_URL || 'http://localhost:7001';
 
 class SubtitleService {
   async getSubtitles(

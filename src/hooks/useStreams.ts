@@ -17,20 +17,21 @@ export function useStreams(contentId: string, type: 'movie' | 'series', season?:
       setStreams([]); // Clear cache - always fresh data
 
       try {
-        // Fetch Vidlink only (other scrapers disabled)
+        // Step 1: Fetch Vidlink (fast)
         const vidlinkData = await providerService.getStreams(contentId, type, season, episode, 'vidlink');
         if (mounted) {
           setStreams(vidlinkData || []);
           setLoading(false);
+          setLoadingOthers(true); // Show loading for others
         }
 
-        // Step 2: Fetch others - DISABLED (only Vidlink now)
-        // const otherData = await providerService.getStreams(contentId, type, season, episode, 'others');
-        // if (mounted) {
-        //   setStreams(prev => {
-        //     return [...prev, ...(otherData || [])];
-        //   });
-        // }
+        // Step 2: Fetch others (additional scrapers)
+        const otherData = await providerService.getStreams(contentId, type, season, episode, 'others');
+        if (mounted) {
+          setStreams(prev => {
+            return [...prev, ...(otherData || [])];
+          });
+        }
       } catch (err) {
         if (mounted) setError(err);
       } finally {
