@@ -9,9 +9,27 @@ export default function PlayerPage() {
   const navigate = useNavigate();
   const [playing, setPlaying] = useState(true);
 
-  const url = searchParams.get('url');
+  const originalUrl = searchParams.get('url');
   const title = searchParams.get('title') || 'Video Player';
   const subtitlesJson = searchParams.get('subtitles');
+
+  // Proxy external streams through backend to bypass CORS
+  const url = useMemo(() => {
+    if (!originalUrl) return null;
+    
+    // If URL is from known CORS-restricted providers, proxy it
+    const needsProxy = originalUrl.includes('vodvidl.site') || 
+                       originalUrl.includes('storm.') ||
+                       originalUrl.includes('videostr.net');
+    
+    if (needsProxy) {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://be-mov.nicola.id/api';
+      const baseUrl = apiUrl.replace('/api', '');
+      return `${baseUrl}/api/proxy/stream?url=${encodeURIComponent(originalUrl)}`;
+    }
+    
+    return originalUrl;
+  }, [originalUrl]);
 
   // Parse subtitles from JSON and convert to tracks
   const tracks = useMemo(() => {
