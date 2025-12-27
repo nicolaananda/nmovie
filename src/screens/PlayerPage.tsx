@@ -9,10 +9,33 @@ export default function PlayerPage() {
   const navigate = useNavigate();
   const [playing, setPlaying] = useState(true);
 
-  const url = searchParams.get('url');
+
+  const tmdbId = searchParams.get('tmdbId');
+  const mediaType = searchParams.get('mediaType');
+  const season = searchParams.get('season');
+  const episode = searchParams.get('episode');
+
+  // Construct Vidrok URL if metadata is available (FORCE VIDROK)
+  let effectiveUrl = searchParams.get('url');
+  let effectiveType = searchParams.get('type');
+
+  if (tmdbId && mediaType) {
+    const baseUrl = 'https://vidrock.net';
+    if (mediaType === 'movie') {
+      effectiveUrl = `${baseUrl}/movie/${tmdbId}`;
+    } else if (mediaType === 'series' && season && episode) {
+      effectiveUrl = `${baseUrl}/tv/${tmdbId}/${season}/${episode}`;
+    }
+
+    // Add parameters
+    if (effectiveUrl) {
+      effectiveUrl += '?autoplay=true&theme=FF6B6B&download=true&nextbutton=true&episodeselector=true&lang=id';
+      effectiveType = 'embed';
+    }
+  }
+
   const title = searchParams.get('title') || 'Video Player';
   const subtitlesJson = searchParams.get('subtitles');
-  const streamType = searchParams.get('type'); // 'embed' or 'file' (default)
 
   // Parse subtitles from JSON and convert to tracks
   const tracks = useMemo(() => {
@@ -96,12 +119,12 @@ export default function PlayerPage() {
 
       {/* Player Area */}
       <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black">
-        {url ? (
+        {effectiveUrl ? (
           <div className="w-full h-full">
-            {streamType === 'embed' ? (
+            {effectiveType === 'embed' ? (
               // Iframe embed (Vidrock, etc.)
               <iframe
-                src={url}
+                src={effectiveUrl}
                 className="w-full h-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                 allowFullScreen
@@ -110,7 +133,7 @@ export default function PlayerPage() {
             ) : (
               // Regular video file (ReactPlayer)
               <ReactPlayer
-                url={url}
+                url={effectiveUrl}
                 playing={playing}
                 controls={true}
                 width="100%"

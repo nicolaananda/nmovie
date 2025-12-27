@@ -54,7 +54,12 @@ Streams Found: ${streams?.length || 0}
     const params = new URLSearchParams({
       url: streamUrl,
       title: title,
+      tmdbId: contentId,
+      mediaType: mediaType,
     });
+
+    if (season) params.append('season', season.toString());
+    if (episode) params.append('episode', episode.toString());
     
     // Add type parameter if it's an embed
     if (streamType === 'embed') {
