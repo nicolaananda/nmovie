@@ -216,12 +216,24 @@ Streams Found: ${streams?.length || 0}
               return (
                 <div
                   key={index}
-                  className={`p-4 rounded-lg transition-all hover:scale-[1.02] ${isPriority ? 'border border-primary-500/50 relative overflow-hidden' : ''}`}
-                  style={{ backgroundColor: currentTheme.colors.cardBackground }}
+                  className={`p-4 rounded-lg transition-all hover:scale-[1.02] ${isVidrock
+                      ? 'border-2 border-green-500/60 relative overflow-hidden bg-gradient-to-br from-green-500/10 to-transparent'
+                      : isPriority
+                        ? 'border border-primary-500/50 relative overflow-hidden'
+                        : ''
+                    }`}
+                  style={{ backgroundColor: isVidrock ? undefined : currentTheme.colors.cardBackground }}
                 >
-                  {isPriority && (
+                  {isVidrock && (
+                    <div className="absolute top-0 right-0 bg-gradient-to-r from-green-600 to-green-500 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl-lg shadow-lg flex items-center gap-1">
+                      <span>⚡ Less Ads</span>
+                      <span className="opacity-60">•</span>
+                      <span>Recommended</span>
+                    </div>
+                  )}
+                  {isVidlink && !isVidrock && (
                     <div className="absolute top-0 right-0 bg-primary-600 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-bl-lg shadow-lg">
-                      {isVidrock ? 'Fast' : 'Recommended'}
+                      Recommended
                     </div>
                   )}
                   <div className="flex items-start justify-between gap-4">
