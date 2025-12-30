@@ -83,7 +83,7 @@ export default function MetadataPage() {
     }
   };
 
-  const handlePlayStream = (streamUrl: string, streamType?: string) => {
+  const handlePlayStream = (streamUrl: string, sourceType?: string) => {
     if (!content) return;
     const title = isSeries
       ? `${content.name} - S${selectedSeason}E${selectedEpisode}`
@@ -98,6 +98,7 @@ export default function MetadataPage() {
       params.set('imdbId', content.imdb_id);
     }
 
+    // Use component-level streamType (movie/series) for mediaType param
     params.set('mediaType', streamType);
 
     if (isSeries) {
@@ -111,7 +112,7 @@ export default function MetadataPage() {
     }
 
     // Add type parameter if it's an embed
-    if (streamType === 'embed') {
+    if (sourceType === 'embed') {
       params.set('type', 'embed');
     }
 

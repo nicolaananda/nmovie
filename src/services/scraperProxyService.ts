@@ -39,6 +39,9 @@ class ScraperProxyService {
     try {
       console.log('[ScraperProxyService] Fetching streams:', { tmdbId, mediaType, season, episode, mode });
 
+      // Get token from storage
+      const token = localStorage.getItem('token');
+
       const response = await axios.post(
         `${PROXY_BASE_URL}/api/scrapers/streams`,
         {
@@ -49,9 +52,10 @@ class ScraperProxyService {
           mode,
         },
         {
-          timeout: 60000, // 60 seconds timeout (scrapers need time to execute)
+          timeout: 60000,
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           },
         }
       );
@@ -97,6 +101,10 @@ class ScraperProxyService {
       return null as any; // Will be filtered out
     }
 
+    // Detect if this is an embed URL (iframe-compatible)
+    const isEmbedUrl = this.isEmbedUrl(url);
+    const streamType = stream.type || (isEmbedUrl ? 'embed' : undefined);
+
     return {
       url,
       title: stream.title || stream.name || stream.label || 'Stream',
@@ -108,9 +116,36 @@ class ScraperProxyService {
       headers: stream.headers || {},
       addon: stream.provider || stream.addon || 'local-scraper',
       addonName: stream.providerName || stream.addonName || 'Local Scraper',
+      type: streamType, // Add type for iframe detection
       // Keep original properties
       ...stream,
     };
+  }
+
+  /**
+   * Check if URL is an embed/iframe URL
+   */
+  private isEmbedUrl(url: string): boolean {
+    const embedDomains = [
+      'vidrock.net',
+      'vidsrc.to',
+      'vidsrc.me',
+      'vidsrc.xyz',
+      'embedsu.com',
+      'embed.su',
+      '2embed.cc',
+      'multiembed.mov',
+      'autoembed.cc',
+      'player.autoembed.cc',
+      'embed.smashystream.com',
+      'player.smashy.stream',
+      'frembed.pro',
+      'vidlink.pro',
+      'vidsrc.pro',
+    ];
+
+    const urlLower = url.toLowerCase();
+    return embedDomains.some(domain => urlLower.includes(domain));
   }
 
   private extractQuality(text: string): string {

@@ -39,30 +39,51 @@ exports.getStreams = async (req, res) => {
         const allStreams = [];
         const errors = [];
 
-        // Add Vidrock streams (local scraper - always fast)
-        try {
-            const vidrockScraper = require('../scrapers/vidrock');
-            const vidrockStreams = await vidrockScraper.getStreams(tmdbId, mediaType, season, episode);
-            if (vidrockStreams && vidrockStreams.length > 0) {
-                console.log(`[Server] Vidrock returned ${vidrockStreams.length} streams`);
-                allStreams.push(...vidrockStreams);
-            }
-        } catch (error) {
-            console.error('[Server] Vidrock scraper error:', error.message);
-            errors.push('Vidrock: ' + error.message);
-        }
+        // List of all available local scrapers
+        const scrapers = [
+            { name: 'Vidrock', file: 'vidrock', priority: 1 },
+            { name: 'Vidsrc.to', file: 'vidsrc-to', priority: 2 },
+            { name: 'Vidsrc.me', file: 'vidsrc-me', priority: 3 },
+            { name: '2Embed', file: '2embed', priority: 4 },
+            { name: 'Embedsu', file: 'embedsu', priority: 5 },
+            { name: 'Multiembed', file: 'multiembed', priority: 6 },
+        ];
 
-        // REMOTE SCRAPERS DISABLED - Only using Vidrock
-        // To re-enable remote scrapers (VidLink, etc.), uncomment the code below
-        
-        // Return only Vidrock streams
+        // Run all scrapers in parallel for fast response
+        const scraperPromises = scrapers.map(async (scraper) => {
+            try {
+                const scraperModule = require(`../scrapers/${scraper.file}`);
+                const streams = await scraperModule.getStreams(tmdbId, mediaType, season, episode);
+                if (streams && streams.length > 0) {
+                    console.log(`[Server] ${scraper.name} returned ${streams.length} streams`);
+                    return streams;
+                }
+                return [];
+            } catch (error) {
+                console.error(`[Server] ${scraper.name} scraper error:`, error.message);
+                errors.push(`${scraper.name}: ${error.message}`);
+                return [];
+            }
+        });
+
+        // Wait for all scrapers to complete
+        const results = await Promise.all(scraperPromises);
+
+        // Flatten results and add to allStreams
+        results.forEach(streams => {
+            if (streams && streams.length > 0) {
+                allStreams.push(...streams);
+            }
+        });
+
+        // Return all streams
         const responseData = {
             streams: allStreams,
             count: allStreams.length,
             errors: errors.length > 0 ? errors : undefined,
         };
 
-        console.log('[Server] Returning Vidrock streams only (remote scrapers disabled)');
+        console.log(`[Server] Returning ${allStreams.length} streams from ${scrapers.length} scrapers`);
         return res.json(responseData);
 
         /* REMOTE SCRAPERS CODE (DISABLED)

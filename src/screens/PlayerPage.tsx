@@ -10,29 +10,9 @@ export default function PlayerPage() {
   const [playing, setPlaying] = useState(true);
 
 
-  const tmdbId = searchParams.get('tmdbId');
-  const mediaType = searchParams.get('mediaType');
-  const season = searchParams.get('season');
-  const episode = searchParams.get('episode');
-
-  // Construct Vidrok URL if metadata is available (FORCE VIDROK)
-  let effectiveUrl = searchParams.get('url');
-  let effectiveType = searchParams.get('type');
-
-  if (tmdbId && mediaType) {
-    const baseUrl = 'https://vidrock.net';
-    if (mediaType === 'movie') {
-      effectiveUrl = `${baseUrl}/movie/${tmdbId}`;
-    } else if (mediaType === 'series' && season && episode) {
-      effectiveUrl = `${baseUrl}/tv/${tmdbId}/${season}/${episode}`;
-    }
-
-    // Add parameters
-    if (effectiveUrl) {
-      effectiveUrl += '?autoplay=true&theme=FF6B6B&download=true&nextbutton=true&episodeselector=true&lang=id';
-      effectiveType = 'embed';
-    }
-  }
+  // Get URL and type from parameters (no longer forcing Vidrock)
+  const effectiveUrl = searchParams.get('url');
+  const effectiveType = searchParams.get('type');
 
   const title = searchParams.get('title') || 'Video Player';
   const subtitlesJson = searchParams.get('subtitles');

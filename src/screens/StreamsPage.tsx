@@ -60,12 +60,12 @@ Streams Found: ${streams?.length || 0}
 
     if (season) params.append('season', season.toString());
     if (episode) params.append('episode', episode.toString());
-    
+
     // Add type parameter if it's an embed
     if (streamType === 'embed') {
       params.append('type', 'embed');
     }
-    
+
     navigate(`/player?${params.toString()}`);
   };
 
@@ -199,7 +199,7 @@ Streams Found: ${streams?.length || 0}
               const bIsVidrock = bName.includes('vidrock');
               const aIsVidlink = aName.includes('vidlink');
               const bIsVidlink = bName.includes('vidlink');
-              
+
               // Vidrock first
               if (aIsVidrock && !bIsVidrock) return -1;
               if (!aIsVidrock && bIsVidrock) return 1;

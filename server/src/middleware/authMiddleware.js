@@ -16,7 +16,7 @@ const protect = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = await prisma.user.findUnique({
             where: { id: decoded.id },
-            select: { id: true, email: true, role: true, status: true, name: true }
+            select: { id: true, email: true, role: true, status: true, name: true, subscriptionEndsAt: true }
         });
 
         if (!req.user) {
@@ -46,4 +46,18 @@ const approved = (req, res, next) => {
     }
 };
 
-module.exports = { protect, admin, approved };
+const checkSubscription = (req, res, next) => {
+    // Admins bypass subscription check
+    if (req.user && req.user.role === 'ADMIN') {
+        return next();
+    }
+
+    // Check if subscription exists and is active
+    if (!req.user.subscriptionEndsAt || new Date(req.user.subscriptionEndsAt) < new Date()) {
+        return res.status(403).json({ error: 'Subscription expired or inactive' });
+    }
+
+    next();
+};
+
+module.exports = { protect, admin, approved, checkSubscription };
