@@ -37,7 +37,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/library`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/library`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -72,7 +72,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${import.meta.env.VITE_API_URL}/api/library`, {
+      await axios.post(`${import.meta.env.VITE_API_URL}/library`, {
         tmdbId: content.id,
         type: content.type,
         name: content.name,
@@ -97,7 +97,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${import.meta.env.VITE_API_URL}/api/library/${contentId}`, {
+      await axios.delete(`${import.meta.env.VITE_API_URL}/library/${contentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
     } catch (error) {
