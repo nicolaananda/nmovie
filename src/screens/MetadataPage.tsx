@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCatalog } from '../contexts/CatalogContext';
-import { Play, Plus, Check, Star } from 'lucide-react';
+import { Play, Plus, Check, Star, Lock } from 'lucide-react';
 import { useContentDetails, useTVSeasons, useTVEpisodes } from '../hooks/useContent';
 import { useStreams } from '../hooks/useStreams';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -8,11 +8,13 @@ import ErrorMessage from '../components/ErrorMessage';
 import { subtitleService } from '../services/subtitleService';
 import type { Subtitle } from '../types/metadata';
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function MetadataPage() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const { isInLibrary, addToLibrary, removeFromLibrary } = useCatalog();
+  const { user, isApproved } = useAuth();
 
   // Extract TMDB ID from id (format: tmdb:123456)
   const tmdbId = id?.includes(':') ? parseInt(id.split(':')[1]) : parseInt(id || '0');
@@ -85,6 +87,17 @@ export default function MetadataPage() {
 
   const handlePlayStream = (streamUrl: string, sourceType?: string) => {
     if (!content) return;
+
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (!isApproved) {
+      alert('Your account is pending approval. You cannot play content strictly yet.');
+      return;
+    }
+
     const title = isSeries
       ? `${content.name} - S${selectedSeason}E${selectedEpisode}`
       : content.name;
@@ -333,9 +346,24 @@ export default function MetadataPage() {
                       </div>
                       <button
                         onClick={() => handlePlayStream(stream.url || stream.sources?.[0] || '', stream.type)}
-                        className="px-4 py-1.5 rounded-md bg-white text-black text-xs font-bold hover:bg-primary-500 hover:text-white transition-colors"
+                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1 flex-shrink-0 ${!user || !isApproved
+                          ? 'bg-white/10 text-gray-400 cursor-not-allowed hover:bg-white/20'
+                          : 'bg-white text-black hover:bg-primary-500 hover:text-white'
+                          }`}
                       >
-                        Play
+                        {!user ? (
+                          <>
+                            <Lock size={12} />
+                            <span>Login</span>
+                          </>
+                        ) : !isApproved ? (
+                          <>
+                            <Lock size={12} />
+                            <span>Approval</span>
+                          </>
+                        ) : (
+                          <span>Play</span>
+                        )}
                       </button>
                     </div>
                   ))}
