@@ -288,7 +288,7 @@ export default function MetadataPage() {
 
                 {/* Episode List */}
                 <div className="glass-panel rounded-xl overflow-hidden bg-black/40">
-                  <div className="max-h-[300px] overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                  <div className="max-h-[600px] overflow-y-auto p-2 space-y-1 custom-scrollbar">
                     {episodes?.map(ep => (
                       <button
                         key={ep.id}
@@ -334,10 +334,10 @@ export default function MetadataPage() {
                   <p>No streams found. Try refreshing.</p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                   {streams.map((stream, idx) => (
-                    <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
-                      <div className="flex flex-col mb-2 md:mb-0">
+                    <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5 gap-3">
+                      <div className="flex flex-col mb-2 md:mb-0 min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-gray-200 text-sm">{stream.title || stream.name || 'Server ' + (idx + 1)}</span>
                           {stream.quality && <span className="px-1.5 py-0.5 bg-primary-900/50 text-primary-200 text-[10px] rounded border border-primary-500/20">{stream.quality}</span>}
@@ -346,7 +346,7 @@ export default function MetadataPage() {
                       </div>
                       <button
                         onClick={() => handlePlayStream(stream.url || stream.sources?.[0] || '', stream.type)}
-                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1 flex-shrink-0 ${!user || !isApproved
+                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors flex items-center gap-1 flex-shrink-0 whitespace-nowrap ${!user || !isApproved
                           ? 'bg-white/10 text-gray-400 cursor-not-allowed hover:bg-white/20'
                           : 'bg-white text-black hover:bg-primary-500 hover:text-white'
                           }`}
