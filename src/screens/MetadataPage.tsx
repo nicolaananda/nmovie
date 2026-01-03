@@ -275,8 +275,8 @@ export default function MetadataPage() {
                 <button
                   onClick={() => setActiveTab('episodes')}
                   className={`flex items-center gap-2 px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === 'episodes'
-                      ? 'border-primary-500 text-white'
-                      : 'border-transparent text-gray-400 hover:text-white'
+                    ? 'border-primary-500 text-white'
+                    : 'border-transparent text-gray-400 hover:text-white'
                     }`}
                 >
                   <Layers size={16} />
@@ -286,8 +286,8 @@ export default function MetadataPage() {
               <button
                 onClick={() => setActiveTab('sources')}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-bold uppercase tracking-wider transition-all border-b-2 ${activeTab === 'sources'
-                    ? 'border-primary-500 text-white'
-                    : 'border-transparent text-gray-400 hover:text-white'
+                  ? 'border-primary-500 text-white'
+                  : 'border-transparent text-gray-400 hover:text-white'
                   }`}
               >
                 <Tv size={16} />
@@ -301,20 +301,20 @@ export default function MetadataPage() {
               {/* EPISODES TAB */}
               {activeTab === 'episodes' && isSeries && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <h3 className="text-xl font-bold text-white">Season {selectedSeason}</h3>
                     {seasons && seasons.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto pb-2 max-w-[50%] custom-scrollbar">
+                      <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto md:max-w-[70%] custom-scrollbar justify-start md:justify-end">
                         {seasons.filter(s => s.season_number > 0).map(s => (
                           <button
                             key={s.id}
-                            className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all ${selectedSeason === s.season_number
-                                ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/50'
-                                : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                            className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${selectedSeason === s.season_number
+                              ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/50'
+                              : 'bg-white/5 text-gray-400 hover:bg-white/10'
                               }`}
                             onClick={() => { setSelectedSeason(s.season_number); setSelectedEpisode(1); }}
                           >
-                            S{s.season_number}
+                            Season {s.season_number}
                           </button>
                         ))}
                       </div>
@@ -328,8 +328,8 @@ export default function MetadataPage() {
                           key={ep.id}
                           onClick={() => handleEpisodeSelect(selectedSeason, ep.episode_number)}
                           className={`w-full flex items-center justify-between p-4 rounded-lg transition-all group ${selectedEpisode === ep.episode_number
-                              ? 'bg-primary-900/20 border border-primary-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]'
-                              : 'hover:bg-white/5 border border-transparent'
+                            ? 'bg-primary-900/20 border border-primary-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]'
+                            : 'hover:bg-white/5 border border-transparent'
                             }`}
                         >
                           <div className="flex items-center gap-4">
@@ -409,8 +409,8 @@ export default function MetadataPage() {
                                   </span>
                                   {stream.quality && (
                                     <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded border ${stream.quality.includes('4K') ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' :
-                                        stream.quality.includes('1080') ? 'bg-green-500/20 text-green-500 border-green-500/30' :
-                                          'bg-white/10 text-gray-400 border-white/10'
+                                      stream.quality.includes('1080') ? 'bg-green-500/20 text-green-500 border-green-500/30' :
+                                        'bg-white/10 text-gray-400 border-white/10'
                                       }`}>
                                       {stream.quality}
                                     </span>
@@ -430,8 +430,8 @@ export default function MetadataPage() {
                             <button
                               onClick={() => handlePlayStream(stream.url || stream.sources?.[0] || '', stream.type)}
                               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-sm transition-transform active:scale-95 shadow-lg w-full md:w-auto justify-center ${!user || !isApproved
-                                  ? 'bg-white/5 text-gray-400 cursor-not-allowed'
-                                  : 'bg-white text-black hover:bg-primary-500 hover:text-white'
+                                ? 'bg-white/5 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-black hover:bg-primary-500 hover:text-white'
                                 }`}
                             >
                               {!user ? (
