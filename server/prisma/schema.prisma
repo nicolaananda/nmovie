@@ -31,4 +31,18 @@ model User {
   subscriptionEndsAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  library   LibraryItem[]
+}
+
+model LibraryItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  tmdbId    String
+  type      String   // 'movie' or 'series'
+  name      String
+  poster    String?
+  addedAt   DateTime @default(now())
+
+  @@unique([userId, tmdbId]) // Prevent duplicate items for same user
 }

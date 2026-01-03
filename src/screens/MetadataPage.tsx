@@ -136,6 +136,7 @@ export default function MetadataPage() {
   const handleEpisodeSelect = (season: number, episode: number) => {
     setSelectedSeason(season);
     setSelectedEpisode(episode);
+    setActiveTab('sources');
   };
 
   const handleLibraryToggle = () => {
