@@ -1,17 +1,19 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useStreams } from '../hooks/useStreams';
-import { Play, Download, AlertCircle, Code } from 'lucide-react';
+import { Play, Download, AlertCircle, Code, Lock } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { providerService } from '../services/providerService';
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function StreamsPage() {
   const { type, id } = useParams<{ type: string; id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { currentTheme } = useTheme();
+  const { user, isApproved } = useAuth();
 
   // Get season and episode from query params (for series)
   const season = searchParams.get('season') ? parseInt(searchParams.get('season')!) : undefined;
@@ -51,6 +53,16 @@ Streams Found: ${streams?.length || 0}
   }, [contentId, mediaType, season, episode, streams]);
 
   const handlePlayStream = (streamUrl: string, streamType?: string) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (!isApproved) {
+      alert('Your account is pending approval. You cannot play content strictly yet.');
+      return;
+    }
+
     const params = new URLSearchParams({
       url: streamUrl,
       title: title,
@@ -217,10 +229,10 @@ Streams Found: ${streams?.length || 0}
                 <div
                   key={index}
                   className={`p-4 rounded-lg transition-all hover:scale-[1.02] ${isVidrock
-                      ? 'border-2 border-green-500/60 relative overflow-hidden bg-gradient-to-br from-green-500/10 to-transparent'
-                      : isPriority
-                        ? 'border border-primary-500/50 relative overflow-hidden'
-                        : ''
+                    ? 'border-2 border-green-500/60 relative overflow-hidden bg-gradient-to-br from-green-500/10 to-transparent'
+                    : isPriority
+                      ? 'border border-primary-500/50 relative overflow-hidden'
+                      : ''
                     }`}
                   style={{ backgroundColor: isVidrock ? undefined : currentTheme.colors.cardBackground }}
                 >
@@ -308,12 +320,26 @@ Streams Found: ${streams?.length || 0}
                       disabled={!stream.url}
                       className="flex items-center space-x-2 px-4 py-2 rounded-lg font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{
-                        backgroundColor: currentTheme.colors.primary,
-                        color: '#ffffff'
+                        backgroundColor: !user || !isApproved ? currentTheme.colors.border : currentTheme.colors.primary,
+                        color: !user || !isApproved ? currentTheme.colors.textSecondary : '#ffffff'
                       }}
                     >
-                      <Play size={16} fill="white" />
-                      <span>Play</span>
+                      {!user ? (
+                        <>
+                          <Lock size={16} />
+                          <span>Login to Play</span>
+                        </>
+                      ) : !isApproved ? (
+                        <>
+                          <Lock size={16} />
+                          <span>Approval Required</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play size={16} fill="white" />
+                          <span>Play</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
