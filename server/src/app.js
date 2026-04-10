@@ -7,17 +7,17 @@ const subtitleRoutes = require('./routes/subtitleRoutes');
 
 const app = express();
 
+// Trust proxy (Nginx/Docker reverse proxy)
+app.set('trust proxy', 1);
+
 // CORS configuration
 const corsOptions = {
     origin: process.env.CORS_ORIGINS?.split(',') || [
         'http://localhost:3000',
-        'http://localhost:4173',
+        'http://localhost:7781',
         'https://ghzm.us',
-        'http://ghzm.us',
         'https://www.ghzm.us',
-        'http://www.ghzm.us',
-        'https://be-mov.nicola.id',
-        'http://be-mov.nicola.id',
+        'https://api.ghzm.us',
     ],
     credentials: true,
     optionsSuccessStatus: 200,
