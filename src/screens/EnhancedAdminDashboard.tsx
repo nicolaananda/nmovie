@@ -12,8 +12,6 @@ import {
     TrendingUp,
     Clock,
     Search,
-    Filter,
-    Download,
 } from 'lucide-react';
 
 interface Analytics {

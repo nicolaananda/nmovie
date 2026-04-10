@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { userService } from '../services/userService';
-import { User, Lock, Calendar, Shield, Loader2, Check, X } from 'lucide-react';
+import { User, Lock, Shield, Loader2, Check, X } from 'lucide-react';
 
 export default function ProfilePage() {
     const { user, updateProfile } = useAuth();
@@ -12,7 +12,6 @@ export default function ProfilePage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-    const isSubscriptionActive = user?.subscriptionEndsAt && new Date(user.subscriptionEndsAt) > new Date();
     const daysRemaining = user?.subscriptionEndsAt
         ? Math.ceil((new Date(user.subscriptionEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : 0;
