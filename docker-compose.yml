@@ -50,8 +50,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://api.ghzm.us/api}
-        VITE_SCRAPER_PROXY_URL: ${VITE_SCRAPER_PROXY_URL:-https://api.ghzm.us}
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_SCRAPER_PROXY_URL: ${VITE_SCRAPER_PROXY_URL:-}
         VITE_TMDB_API_KEY: ${VITE_TMDB_API_KEY:-}
     container_name: nmovie_frontend
     restart: unless-stopped
