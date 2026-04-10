@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useTrendingContent, usePopularContent, useIndonesianContent, useGenreContent } from '../hooks/useContent';
+import { useAuth } from '../contexts/AuthContext';
 import ContentCard from '../components/ContentCard';
+import ContinueWatching from '../components/ContinueWatching';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 
@@ -47,6 +49,7 @@ const CategoryRow = ({ title, fetcher, mediaType }: { title: string, fetcher: an
 export default function HomePage() {
   // Theme customized directly in this file for N-Movie look
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const {
     data: trendingMovies,
@@ -152,6 +155,9 @@ export default function HomePage() {
 
       {/* ROWS */}
       <section className="space-y-16 px-6 md:px-16 -mt-32 relative z-10">
+        {/* Continue Watching - Only show for logged in users */}
+        {user && <ContinueWatching />}
+
         {/* Trending Movies Row */}
         <div className="space-y-6 relative group/row">
           <div className="flex items-center justify-between px-2">

@@ -13,6 +13,7 @@ datasource db {
 enum Role {
   USER
   ADMIN
+  MODERATOR
 }
 
 enum UserStatus {
@@ -21,28 +22,149 @@ enum UserStatus {
   REJECTED
 }
 
+enum NotificationType {
+  APPROVAL
+  SUBSCRIPTION_EXPIRING
+  SUBSCRIPTION_EXPIRED
+  NEW_CONTENT
+  SYSTEM
+}
+
+enum ActivityType {
+  LOGIN
+  LOGOUT
+  WATCH_START
+  WATCH_COMPLETE
+  LIBRARY_ADD
+  LIBRARY_REMOVE
+  PROFILE_UPDATE
+  PASSWORD_CHANGE
+  ADMIN_ACTION
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  name      String?
-  role      Role     @default(USER)
-  status    UserStatus @default(PENDING)
-  subscriptionEndsAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  library   LibraryItem[]
+  id                  Int              @id @default(autoincrement())
+  email               String           @unique
+  password            String
+  name                String?
+  role                Role             @default(USER)
+  status              UserStatus       @default(PENDING)
+  subscriptionEndsAt  DateTime?
+  subscriptionPlanId  Int?
+  subscriptionPlan    SubscriptionPlan? @relation(fields: [subscriptionPlanId], references: [id])
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  library             LibraryItem[]
+  watchHistory        WatchHistory[]
+  notifications       Notification[]
+  activityLogs        ActivityLog[]
+  devices             UserDevice[]
+}
+
+model SubscriptionPlan {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique
+  durationMonths  Int
+  price           Float
+  features        String[] // JSON array of features
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users           User[]
 }
 
 model LibraryItem {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tmdbId    String
   type      String   // 'movie' or 'series'
   name      String
   poster    String?
   addedAt   DateTime @default(now())
 
-  @@unique([userId, tmdbId]) // Prevent duplicate items for same user
+  @@unique([userId, tmdbId])
+  @@index([userId])
 }
+
+model WatchHistory {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tmdbId          String
+  type            String   // 'movie' or 'series'
+  name            String
+  poster          String?
+  seasonNumber    Int?     // For series
+  episodeNumber   Int?     // For series
+  progress        Float    @default(0) // Progress in seconds
+  duration        Float?   // Total duration in seconds
+  completed       Boolean  @default(false)
+  lastWatchedAt   DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, tmdbId, seasonNumber, episodeNumber])
+  @@index([userId, lastWatchedAt])
+  @@index([userId, completed])
+}
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  userId      Int
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
+model ActivityLog {
+  id          Int          @id @default(autoincrement())
+  userId      Int
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        ActivityType
+  description String
+  metadata    String?      // JSON string for additional data
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime     @default(now())
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+model UserDevice {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId    String   @unique
+  deviceName  String
+  lastUsedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AdminAction {
+  id          Int      @id @default(autoincrement())
+  adminId     Int
+  adminEmail  String
+  action      String   // e.g., "APPROVE_USER", "DELETE_USER", "UPDATE_SUBSCRIPTION"
+  targetId    Int?     // ID of affected entity
+  targetType  String?  // e.g., "USER", "CONTENT"
+  description String
+  metadata    String?  // JSON string
+  createdAt   DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([createdAt])
+}
+

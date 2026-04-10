@@ -11,8 +11,10 @@ import PlayerPage from './screens/PlayerPage';
 import SettingsPage from './screens/SettingsPage';
 import LoginPage from './screens/LoginPage';
 import RegisterPage from './screens/RegisterPage';
+import ProfilePage from './screens/ProfilePage';
+import WatchHistoryPage from './screens/WatchHistoryPage';
 import ProtectedRoute from './components/ProtectedRoute';
-import AdminDashboard from './screens/AdminDashboard';
+import EnhancedAdminDashboard from './screens/EnhancedAdminDashboard';
 
 function App() {
   return (
@@ -28,13 +30,18 @@ function App() {
             <Route path="library" element={<LibraryPage />} />
             <Route path="metadata/:type/:id" element={<MetadataPage />} />
 
+            <Route element={<ProtectedRoute />}>
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="history" element={<WatchHistoryPage />} />
+            </Route>
+
             <Route element={<ProtectedRoute requireApproval />}>
               <Route path="streams/:type/:id" element={<StreamsPage />} />
               <Route path="player" element={<PlayerPage />} />
             </Route>
 
             <Route element={<ProtectedRoute adminOnly />}>
-              <Route path="admin" element={<AdminDashboard />} />
+              <Route path="admin" element={<EnhancedAdminDashboard />} />
             </Route>
 
             <Route path="settings" element={<SettingsPage />} />
