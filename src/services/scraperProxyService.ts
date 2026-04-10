@@ -14,8 +14,7 @@ import { Stream } from '../types/metadata';
  * You need to setup a backend server to handle scraper execution.
  */
 
-const PROXY_BASE_URL = import.meta.env.VITE_SCRAPER_PROXY_URL ||
-  'http://localhost:7001'; // Default to local proxy server
+const PROXY_BASE_URL = import.meta.env.VITE_SCRAPER_PROXY_URL || '';
 
 export interface ScraperProxyResponse {
   streams: Stream[];

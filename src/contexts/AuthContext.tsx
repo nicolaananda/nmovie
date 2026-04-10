@@ -15,8 +15,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Configure axios defaults
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:7001/api'; // Backend runs on port 7001
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:7001/api';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
@@ -29,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (token) {
                 axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
                 try {
-                    const { data } = await axios.get<User>('/auth/me');
+                    const { data } = await axios.get<User>(`${API_URL}/auth/me`);
                     setUser({ ...data, token });
                 } catch (error) {
                     console.error('Auth verification failed', error);
@@ -45,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const login = async (email: string, password: string) => {
         try {
-            const { data } = await axios.post<LoginResponse>('/auth/login', { email, password });
+            const { data } = await axios.post<LoginResponse>(`${API_URL}/auth/login`, { email, password });
             localStorage.setItem('token', data.token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
             setUser(data);
@@ -57,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const register = async (name: string, email: string, password: string) => {
         try {
-            const { data } = await axios.post<LoginResponse>('/auth/register', { name, email, password });
+            const { data } = await axios.post<LoginResponse>(`${API_URL}/auth/register`, { name, email, password });
             localStorage.setItem('token', data.token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
             setUser(data);
@@ -68,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const updateProfile = async (name: string) => {
         try {
-            const { data } = await axios.put<User>('/auth/me', { name });
+            const { data } = await axios.put<User>(`${API_URL}/auth/me`, { name });
             setUser(prev => prev ? { ...prev, ...data } : null);
         } catch (error) {
             throw error;

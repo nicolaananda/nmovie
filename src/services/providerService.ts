@@ -3,8 +3,7 @@ import { Stream } from '../types/metadata';
 import { scraperProxyService } from './scraperProxyService';
 
 // Scraper Proxy URL - Backend server that executes scrapers
-const SCRAPER_PROXY_URL = import.meta.env.VITE_SCRAPER_PROXY_URL ||
-  'http://localhost:7001';
+const SCRAPER_PROXY_URL = import.meta.env.VITE_SCRAPER_PROXY_URL || '';
 
 const PROVIDER_BASE_URL = 'https://nuvio-providers.vercel.app';
 
