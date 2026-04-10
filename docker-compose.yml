@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  # ==========================================
+  # PostgreSQL Database
+  # ==========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: nuvio_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-nuvio_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-nuvio_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ==========================================
+  # Backend (Node.js + Express + Prisma)
+  # ==========================================
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: nuvio_backend
+    restart: unless-stopped
+    ports:
+      - "7001:7001"
+    environment:
+      PORT: 7001
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-nuvio_db}
+      JWT_SECRET: ${JWT_SECRET:-change_me_please_use_openssl_rand_base64_32}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ==========================================
+  # Frontend (Vite React + Nginx)
+  # ==========================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_SCRAPER_PROXY_URL: ${VITE_SCRAPER_PROXY_URL:-}
+        VITE_TMDB_API_KEY: ${VITE_TMDB_API_KEY:-}
+    container_name: nuvio_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
