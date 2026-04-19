@@ -140,14 +140,14 @@ exports.getUsers = async (req, res) => {
 // Update user status
 exports.updateUserStatus = async (req, res) => {
     const { id } = req.params;
-    const { status, durationMonths } = req.body;
+    const { status, durationDays } = req.body;
 
     try {
         let updateData = { status };
 
-        if (status === 'APPROVED' && durationMonths) {
+        if (status === 'APPROVED' && durationDays) {
             const endDate = new Date();
-            endDate.setMonth(endDate.getMonth() + parseInt(durationMonths));
+            endDate.setDate(endDate.getDate() + parseInt(durationDays));
             updateData.subscriptionEndsAt = endDate;
         }
 
@@ -187,7 +187,7 @@ exports.updateUserStatus = async (req, res) => {
                 targetId: user.id,
                 targetType: 'USER',
                 description: `Updated user ${user.email} status to ${status}`,
-                metadata: JSON.stringify({ status, durationMonths }),
+                metadata: JSON.stringify({ status, durationDays }),
             },
         });
 
@@ -201,10 +201,10 @@ exports.updateUserStatus = async (req, res) => {
 // Bulk approve users
 exports.bulkApproveUsers = async (req, res) => {
     try {
-        const { userIds, durationMonths } = req.body;
+        const { userIds, durationDays } = req.body;
 
         const endDate = new Date();
-        endDate.setMonth(endDate.getMonth() + parseInt(durationMonths));
+        endDate.setDate(endDate.getDate() + parseInt(durationDays));
 
         await prisma.user.updateMany({
             where: { id: { in: userIds.map(id => parseInt(id)) } },
@@ -231,7 +231,7 @@ exports.bulkApproveUsers = async (req, res) => {
                 adminEmail: req.user.email,
                 action: 'BULK_APPROVE_USERS',
                 description: `Bulk approved ${userIds.length} users`,
-                metadata: JSON.stringify({ userIds, durationMonths }),
+                metadata: JSON.stringify({ userIds, durationDays }),
             },
         });
 
@@ -440,12 +440,12 @@ exports.getSubscriptionPlans = async (req, res) => {
 };
 
 exports.createSubscriptionPlan = async (req, res) => {
-  const { name, durationMonths, price, features, isActive } = req.body;
+  const { name, durationDays, price, features, isActive } = req.body;
   try {
     const plan = await prisma.subscriptionPlan.create({
       data: {
         name,
-        durationMonths,
+        durationDays,
         price,
         features: features || [],
         isActive: isActive ?? true,
@@ -460,13 +460,13 @@ exports.createSubscriptionPlan = async (req, res) => {
 
 exports.updateSubscriptionPlan = async (req, res) => {
   const { id } = req.params;
-  const { name, durationMonths, price, features, isActive } = req.body;
+  const { name, durationDays, price, features, isActive } = req.body;
   try {
     const plan = await prisma.subscriptionPlan.update({
       where: { id: parseInt(id) },
       data: {
         name,
-        durationMonths,
+        durationDays,
         price,
         features,
         isActive,

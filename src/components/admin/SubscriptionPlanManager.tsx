@@ -4,7 +4,7 @@ import { adminService } from '../../services/adminService';
 type Plan = {
   id: number;
   name: string;
-  durationMonths: number;
+  durationDays: number;
   price: number;
   features: string[];
   isActive: boolean;
@@ -17,7 +17,7 @@ export default function SubscriptionPlanManager() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Plan | null>(null);
-  const [form, setForm] = useState({ name: '', durationMonths: 1, price: 0, features: '' , isActive: true});
+  const [form, setForm] = useState({ name: '', durationDays: 1, price: 0, features: '' , isActive: true});
 
   useEffect(() => {
     loadPlans();
@@ -35,7 +35,7 @@ export default function SubscriptionPlanManager() {
     }
   };
 
-  const resetForm = () => setForm({ name: '', durationMonths: 1, price: 0, features: '', isActive: true });
+  const resetForm = () => setForm({ name: '', durationDays: 1, price: 0, features: '', isActive: true });
 
   const openCreate = () => {
     resetForm();
@@ -45,7 +45,7 @@ export default function SubscriptionPlanManager() {
 
   const openEdit = (plan: Plan) => {
     setEditing(plan);
-    setForm({ name: plan.name, durationMonths: plan.durationMonths, price: plan.price, features: plan.features.join(','), isActive: plan.isActive });
+    setForm({ name: plan.name, durationDays: plan.durationDays, price: plan.price, features: plan.features.join(','), isActive: plan.isActive });
     setOpen(true);
   };
 
@@ -54,13 +54,13 @@ export default function SubscriptionPlanManager() {
     if (editing) {
       await adminService.updateSubscriptionPlan(editing.id, {
         name: form.name,
-        durationMonths: form.durationMonths,
+        durationDays: form.durationDays,
         price: form.price,
         features,
         isActive: form.isActive,
       });
     } else {
-      await adminService.createSubscriptionPlan({ name: form.name, durationMonths: form.durationMonths, price: form.price, features, isActive: form.isActive });
+      await adminService.createSubscriptionPlan({ name: form.name, durationDays: form.durationDays, price: form.price, features, isActive: form.isActive });
     }
     setOpen(false);
     await loadPlans();
@@ -90,7 +90,7 @@ export default function SubscriptionPlanManager() {
             <div className="flex items-start justify-between mb-2">
               <div>
                 <div className="font-semibold text-white">{p.name}</div>
-                <div className="text-sm text-gray-300">{p.durationMonths} months • ${p.price}/month</div>
+                <div className="text-sm text-gray-300">{p.durationDays} days • Rp {p.price.toLocaleString()}</div>
               </div>
               <span className={`px-2 py-1 text-xs rounded ${p.isActive ? 'bg-green-500/20 text-green-300' : 'bg-gray-700/40 text-gray-300'}`}>
                 {p.isActive ? 'Active' : 'Inactive'}
@@ -120,7 +120,7 @@ export default function SubscriptionPlanManager() {
             <div className="grid grid-cols-1 gap-3">
               <input className="bg-black/20 border border-white/20 rounded px-2 py-1 text-white" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               <div className="flex gap-2">
-                <input type="number" className="bg-black/20 border border-white/20 rounded px-2 py-1 text-white" placeholder="Duration months" value={form.durationMonths} onChange={(e) => setForm({ ...form, durationMonths: parseInt(e.target.value) || 1 })} />
+                <input type="number" className="bg-black/20 border border-white/20 rounded px-2 py-1 text-white" placeholder="Duration (days)" value={form.durationDays} onChange={(e) => setForm({ ...form, durationDays: parseInt(e.target.value) || 1 })} />
                 <input type="number" className="bg-black/20 border border-white/20 rounded px-2 py-1 text-white" placeholder="Price" value={form.price} onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} />
               </div>
               <input className="bg-black/20 border border-white/20 rounded px-2 py-1 text-white" placeholder="Features (comma separated)" value={form.features} onChange={(e) => setForm({ ...form, features: e.target.value })} />

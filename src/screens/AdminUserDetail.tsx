@@ -28,11 +28,11 @@ export default function AdminUserDetail() {
     }
   };
 
-  const updateStatus = async (status: 'APPROVED' | 'REJECTED', durationMonths?: number) => {
+  const updateStatus = async (status: 'APPROVED' | 'REJECTED', durationDays?: number) => {
     if (!userId) return;
     setUpdating(true);
     try {
-      await adminService.updateUserStatus(userId, status, durationMonths);
+      await adminService.updateUserStatus(userId, status, durationDays);
       fetchUserDetails();
     } catch (e) {
       console.error('Failed to update status', e);

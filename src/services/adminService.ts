@@ -18,19 +18,19 @@ export const adminService = {
         return data;
     },
 
-    async updateUserStatus(id: number, status: string, durationMonths?: number, subscriptionEndsAt?: string) {
+    async updateUserStatus(id: number, status: string, durationDays?: number, subscriptionEndsAt?: string) {
         const { data } = await axios.put(`${API_URL}/admin/users/${id}/status`, {
             status,
-            durationMonths,
+            durationDays,
             subscriptionEndsAt,
         });
         return data;
     },
 
-    async bulkApproveUsers(userIds: number[], durationMonths: number) {
+    async bulkApproveUsers(userIds: number[], durationDays: number) {
         const { data } = await axios.post(`${API_URL}/admin/users/bulk-approve`, {
             userIds,
-            durationMonths,
+            durationDays,
         });
         return data;
     },
@@ -61,11 +61,11 @@ export const adminService = {
         const { data } = await axios.get(`${API_URL}/admin/subscription-plans`);
         return data;
     },
-    async createSubscriptionPlan(plan: { name: string; durationMonths: number; price: number; features: string[]; isActive: boolean }) {
+    async createSubscriptionPlan(plan: { name: string; durationDays: number; price: number; features: string[]; isActive: boolean }) {
         const { data } = await axios.post(`${API_URL}/admin/subscription-plans`, plan);
         return data;
     },
-    async updateSubscriptionPlan(planId: number, plan: { name?: string; durationMonths?: number; price?: number; features?: string[]; isActive?: boolean }) {
+    async updateSubscriptionPlan(planId: number, plan: { name?: string; durationDays?: number; price?: number; features?: string[]; isActive?: boolean }) {
         const { data } = await axios.put(`${API_URL}/admin/subscription-plans/${planId}`, plan);
         return data;
     },
