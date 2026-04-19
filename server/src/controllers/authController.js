@@ -44,10 +44,17 @@ exports.register = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // First user is Admin
         const userCount = await prisma.user.count();
-        const role = userCount === 0 ? 'ADMIN' : 'USER';
-        const status = role === 'ADMIN' ? 'APPROVED' : 'PENDING';
+        const isFirstUser = userCount === 0;
+        const role = isFirstUser ? 'ADMIN' : 'USER';
+
+        const trialPlan = isFirstUser ? null : await prisma.subscriptionPlan.findFirst({
+            where: { durationDays: 1, isActive: true },
+            orderBy: { id: 'asc' },
+        });
+
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 1);
 
         const user = await prisma.user.create({
             data: {
@@ -55,19 +62,20 @@ exports.register = async (req, res) => {
                 email,
                 password: hashedPassword,
                 role,
-                status,
+                status: 'APPROVED',
+                subscriptionEndsAt: trialEnd,
+                ...(trialPlan ? { subscriptionPlanId: trialPlan.id } : {}),
             },
         });
 
         if (user) {
-            // Create welcome notification
             await createNotification(
                 user.id,
                 'SYSTEM',
                 'Welcome to Nuvio!',
-                status === 'PENDING'
-                    ? 'Your account is pending approval. You will be notified once approved.'
-                    : 'Welcome! Your account is ready to use.'
+                isFirstUser
+                    ? 'Welcome! Your admin account is ready.'
+                    : `Welcome! You have a 24-hour free trial. Enjoy!`
             );
 
             // Log activity
@@ -89,6 +97,7 @@ exports.register = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 status: user.status,
+                subscriptionEndsAt: user.subscriptionEndsAt,
                 token: generateToken(user.id),
             });
         } else {

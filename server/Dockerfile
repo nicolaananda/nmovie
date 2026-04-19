@@ -21,4 +21,4 @@ COPY src ./src/
 EXPOSE 7001
 
 # Script: jalankan migration lalu start server
-CMD ["sh", "-c", "npx prisma migrate deploy && node src/server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node prisma/seed.js && node src/server.js"]
