@@ -15,6 +15,10 @@ import ProfilePage from './screens/ProfilePage';
 import WatchHistoryPage from './screens/WatchHistoryPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import EnhancedAdminDashboard from './screens/EnhancedAdminDashboard';
+import AdminUserDetail from './screens/AdminUserDetail';
+import GenrePage from './screens/GenrePage';
+import ForgotPasswordPage from './screens/ForgotPasswordPage';
+import ResetPasswordPage from './screens/ResetPasswordPage';
 
 function App() {
   return (
@@ -22,11 +26,14 @@ function App() {
       <CatalogProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
           <Route path="/" element={<Layout />}>
             <Route index element={<HomePage />} />
             <Route path="search" element={<SearchPage />} />
+            <Route path="genres" element={<GenrePage />} />
             <Route path="library" element={<LibraryPage />} />
             <Route path="metadata/:type/:id" element={<MetadataPage />} />
 
@@ -42,6 +49,7 @@ function App() {
 
             <Route element={<ProtectedRoute adminOnly />}>
               <Route path="admin" element={<EnhancedAdminDashboard />} />
+              <Route path="users/:id" element={<AdminUserDetail />} />
             </Route>
 
             <Route path="settings" element={<SettingsPage />} />
@@ -54,4 +62,3 @@ function App() {
 }
 
 export default App;
-

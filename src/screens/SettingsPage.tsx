@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Palette, Info, Code, User, Save, Loader2 } from 'lucide-react';
+import { Palette, Info, Code, User, Save, Loader2, Check } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
 /* Since we moved to Tailwind only, we don't strictly need useTheme for colors, 
@@ -29,6 +30,8 @@ export default function SettingsPage() {
       setIsUpdating(false);
     }
   };
+
+  const { currentTheme, availableThemes, setCurrentTheme } = useTheme();
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] pt-28 px-6 md:px-16 pb-20 max-w-5xl mx-auto">
@@ -98,7 +101,7 @@ export default function SettingsPage() {
           </form>
         </div>
 
-        {/* THEME SECTION (Just for show as we enforced Maroon) */}
+        {/* THEME SECTION (Theme Selector) */}
         <div className="glass-panel p-8 rounded-2xl bg-white/5 border border-white/5">
           <div className="flex items-center gap-4 mb-6">
             <div className="p-3 rounded-full bg-purple-900/30 text-purple-400">
@@ -124,6 +127,28 @@ export default function SettingsPage() {
                 <span className="font-semibold text-gray-400">Netflix Red</span>
               </div>
             </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
+            {availableThemes.map((t) => (
+              <div
+                key={t.id}
+                className={`glass-panel p-4 rounded-lg border ${t.id === currentTheme.id ? 'border-primary-600' : 'border-white/10'} flex flex-col items-start justify-between cursor-pointer`}
+                onClick={() => setCurrentTheme(t.id)}
+              >
+                <div className="flex items-center gap-3 mb-2 w-full justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.primary }} />
+                    <span className="font-semibold text-white">{t.name}</span>
+                  </div>
+                  {t.id === currentTheme.id && <Check size={14} className="text-green-400" />}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.primary }} />
+                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.secondary }} />
+                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.darkBackground }} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

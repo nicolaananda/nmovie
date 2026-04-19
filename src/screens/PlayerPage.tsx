@@ -1,18 +1,34 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactPlayer from 'react-player';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import type { Subtitle } from '../types/metadata';
+import Skeleton from '../components/Skeleton';
 
 export default function PlayerPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [playing, setPlaying] = useState(true);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const playerRef = useRef<ReactPlayer>(null);
 
-
-  // Get URL and type from parameters (no longer forcing Vidrock)
+  // Get URL and type from parameters
   const effectiveUrl = searchParams.get('url');
   const effectiveType = searchParams.get('type');
+
+  // Validate URL safely
+  const validatedUrl = useMemo(() => {
+    if (!effectiveUrl) return null;
+    try {
+      const u = new URL(effectiveUrl);
+      if (u.protocol === 'http:' || u.protocol === 'https:') {
+        return effectiveUrl;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }, [effectiveUrl]);
 
   const title = searchParams.get('title') || 'Video Player';
   const subtitlesJson = searchParams.get('subtitles');
@@ -23,11 +39,8 @@ export default function PlayerPage() {
 
     try {
       const subtitles: Subtitle[] = JSON.parse(subtitlesJson);
-
-      // Track if we've found the first Indonesian subtitle
       let firstIndonesianFound = false;
 
-      // Convert subtitles to track format
       return subtitles.map((sub, idx) => {
         const code = (sub.lang || 'en').toLowerCase();
         let label = 'Unknown';
@@ -45,13 +58,11 @@ export default function PlayerPage() {
         else if (code === 'ko') label = 'Korean';
         else label = code.toUpperCase();
 
-        // If multiple subtitles have same language, add index
         const sameLangCount = subtitles.filter((s, i) => i < idx && s.lang === sub.lang).length;
         if (sameLangCount > 0) {
           label = `${label} ${sameLangCount + 1}`;
         }
 
-        // Auto-select first Indonesian subtitle
         const isFirstIndonesian = code === 'id' && !firstIndonesianFound;
         if (isFirstIndonesian) {
           firstIndonesianFound = true;
@@ -62,7 +73,7 @@ export default function PlayerPage() {
           src: sub.url,
           srcLang: code,
           label,
-          default: isFirstIndonesian, // Auto-select first Indonesian subtitle
+          default: isFirstIndonesian,
         };
       });
     } catch (error) {
@@ -71,12 +82,62 @@ export default function PlayerPage() {
     }
   }, [subtitlesJson]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKeyDown = async (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (key === ' ' || key === 'spacebar') {
+        e.preventDefault();
+        setPlaying((p) => !p);
+      } else if (key === 'f') {
+        try {
+          const el = document.querySelector('video,iframe') as HTMLElement & { requestFullscreen?: () => Promise<void> };
+          if (el?.requestFullscreen) {
+            await el.requestFullscreen();
+          }
+        } catch { /* ignore */ }
+      } else if (key === 'escape') {
+        navigate(-1);
+      } else if (key === 'arrowleft') {
+        const internal = playerRef.current?.getInternalPlayer() as HTMLVideoElement | undefined;
+        if (internal?.currentTime !== undefined) {
+          internal.currentTime = Math.max(0, internal.currentTime - 10);
+        }
+      } else if (key === 'arrowright') {
+        const internal = playerRef.current?.getInternalPlayer() as HTMLVideoElement | undefined;
+        if (internal?.currentTime !== undefined) {
+          internal.currentTime += 10;
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [navigate]);
+
+  const handlePiP = async () => {
+    try {
+      const video = document.querySelector('video') as HTMLVideoElement | null;
+      if (video && document.pictureInPictureEnabled) {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else {
+          await video.requestPictureInPicture();
+        }
+      }
+    } catch { /* ignore */ }
+  };
+
   return (
     <div className="fixed inset-0 bg-black flex flex-col z-50">
-      {/* Top bar overlay */}
-      <div className="absolute top-0 left-0 w-full p-4 z-10 pointer-events-none flex justify-center pt-6">
+      {/* Top gradient overlay */}
+      <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-[5]" />
+      {/* Bottom gradient overlay */}
+      <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/60 to-transparent pointer-events-none z-[5]" />
+
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 w-full p-4 z-10 pointer-events-none flex justify-between items-start pt-6 px-6">
         {/* Floating Island: Back + Title + Subs */}
-        <div className="pointer-events-auto flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-2 py-1.5 transition-all hover:bg-black/60 shadow-lg animate-slide-down">
+        <div className="pointer-events-auto flex items-center gap-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-2 py-1.5 transition-all hover:bg-black/60 shadow-lg">
           <button
             onClick={() => navigate(-1)}
             className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors group"
@@ -95,27 +156,45 @@ export default function PlayerPage() {
             )}
           </div>
         </div>
+
+        {/* PiP button */}
+        {effectiveType !== 'embed' && (
+          <button
+            onClick={handlePiP}
+            className="pointer-events-auto p-2 rounded-full bg-black/40 backdrop-blur-md hover:bg-white/20 border border-white/10 text-white text-xs font-medium transition-colors"
+            title="Picture-in-Picture"
+          >
+            PiP
+          </button>
+        )}
       </div>
 
       {/* Player Area */}
       <div className="flex-1 w-full h-full relative flex items-center justify-center bg-black">
-        {effectiveUrl ? (
+        {validatedUrl ? (
           <div className="w-full h-full">
             {effectiveType === 'embed' ? (
-              // Iframe embed (Vidrock, etc.)
-              <iframe
-                src={effectiveUrl}
-                className="w-full h-full border-0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                allowFullScreen
-                style={{ position: 'absolute', top: 0, left: 0 }}
-              />
+              <>
+                <iframe
+                  src={validatedUrl}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                  allowFullScreen
+                  style={{ position: 'absolute', top: 0, left: 0 }}
+                  onLoad={() => setIframeLoaded(true)}
+                />
+                {!iframeLoaded && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                    <Skeleton variant="card" className="w-1/2 h-1/2" />
+                  </div>
+                )}
+              </>
             ) : (
-              // Regular video file (ReactPlayer)
               <ReactPlayer
-                url={effectiveUrl}
+                ref={playerRef}
+                url={validatedUrl}
                 playing={playing}
-                controls={true}
+                controls
                 width="100%"
                 height="100%"
                 onPlay={() => setPlaying(true)}
@@ -124,8 +203,8 @@ export default function PlayerPage() {
                   file: {
                     tracks,
                     attributes: {
-                      crossOrigin: "anonymous" // crucial for subtitles
-                    }
+                      crossOrigin: 'anonymous',
+                    },
                   },
                 }}
                 style={{ position: 'absolute', top: 0, left: 0 }}

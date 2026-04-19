@@ -24,6 +24,9 @@ class SubtitleService {
         episode,
       });
 
+      // Get token from storage
+      const token = localStorage.getItem('token');
+
       // Call backend proxy endpoint
       const response = await axios.post(
         `${PROXY_BASE_URL}/api/subtitles`,
@@ -38,6 +41,7 @@ class SubtitleService {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           },
         }
       );

@@ -1,4 +1,6 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import Skeleton from './Skeleton';
 import { StreamingContent } from '../types/metadata';
 import { Star } from 'lucide-react';
 
@@ -8,6 +10,7 @@ interface ContentCardProps {
 
 export default function ContentCard({ content }: ContentCardProps) {
   const navigate = useNavigate();
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const handleClick = () => {
     navigate(`/metadata/${content.type}/${content.id}`);
@@ -23,12 +26,19 @@ export default function ContentCard({ content }: ContentCardProps) {
         <img
           src={content.poster}
           alt={content.name}
-          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+          className={`w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           loading="lazy"
+          onLoad={() => setImageLoaded(true)}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-[#1f1f1f]">
           <span className="text-gray-500 font-medium">No Image</span>
+        </div>
+      )}
+      {/* Blur-up skeleton while image loads */}
+      {!imageLoaded && content.poster && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+          <Skeleton variant="poster" className="w-4/5 h-full" />
         </div>
       )}
 
@@ -75,4 +85,3 @@ export default function ContentCard({ content }: ContentCardProps) {
     </div>
   );
 }
-

@@ -6,7 +6,7 @@ interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<void>;
-    register: (name: string, email: string, password: string) => Promise<void>;
+    register: (name: string, email: string, password: string) => Promise<User>;
     updateProfile: (name: string) => Promise<void>;
     logout: () => void;
     isAdmin: boolean;
@@ -60,6 +60,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('token', data.token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
             setUser(data);
+            // Return the user data to caller so the UI can react to status (PENDING/APPROVED)
+            return data as unknown as User;
         } catch (error) {
             throw error;
         }

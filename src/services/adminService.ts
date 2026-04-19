@@ -35,8 +35,42 @@ export const adminService = {
         return data;
     },
 
+    // Bulk notify users
+    async bulkNotify(title: string, message: string, target: string, selectedUserIds?: number[]) {
+        const payload: any = { title, message, target };
+        if (target === 'SELECTED') payload.selectedUserIds = selectedUserIds || [];
+        const { data } = await axios.post(`${API_URL}/admin/bulk-notify`, payload);
+        return data;
+    },
+
     async deleteUser(id: number) {
         const { data } = await axios.delete(`${API_URL}/admin/users/${id}`);
+        return data;
+    },
+
+    // Update user role
+    async updateUserRole(userId: number, role: string) {
+        const { data } = await axios.put(`${API_URL}/admin/users/${userId}/role`, {
+            role,
+        });
+        return data;
+    },
+
+    // Subscription Plans
+    async getSubscriptionPlans() {
+        const { data } = await axios.get(`${API_URL}/admin/subscription-plans`);
+        return data;
+    },
+    async createSubscriptionPlan(plan: { name: string; durationMonths: number; price: number; features: string[]; isActive: boolean }) {
+        const { data } = await axios.post(`${API_URL}/admin/subscription-plans`, plan);
+        return data;
+    },
+    async updateSubscriptionPlan(planId: number, plan: { name?: string; durationMonths?: number; price?: number; features?: string[]; isActive?: boolean }) {
+        const { data } = await axios.put(`${API_URL}/admin/subscription-plans/${planId}`, plan);
+        return data;
+    },
+    async deleteSubscriptionPlan(planId: number) {
+        const { data } = await axios.delete(`${API_URL}/admin/subscription-plans/${planId}`);
         return data;
     },
 

@@ -46,6 +46,38 @@ exports.getAnalytics = async (req, res) => {
             take: 10,
         });
 
+        // User growth for the last 7 days (daily new users)
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(now.getDate() - 6); // include today
+        const growth = await prisma.user.findMany({
+            where: {
+                createdAt: {
+                    gte: new Date(sevenDaysAgo.toDateString()),
+                },
+            },
+            select: { id: true, createdAt: true },
+        });
+        // Build daily counts map
+        const days = Array.from({ length: 7 }).map((_, idx) => {
+            const d = new Date(sevenDaysAgo);
+            d.setDate(sevenDaysAgo.getDate() + idx);
+            const key = d.toISOString().slice(0, 10);
+            return { date: key, count: 0 };
+        });
+        growth.forEach((u) => {
+            if (u.createdAt) {
+                const key = new Date(u.createdAt).toISOString().slice(0, 10);
+                const found = days.find((x) => x.date === key);
+                if (found) found.count += 1;
+            }
+        });
+        // Attach human-friendly days labels (SUN, MON, ...)
+        const enrichedGrowth = days.map((d) => {
+            const dateObj = new Date(d.date);
+            const label = dateObj.toLocaleDateString(undefined, { weekday: 'short' });
+            return { date: label, count: d.count };
+        });
+
         res.json({
             totalUsers,
             pendingUsers,
@@ -54,6 +86,7 @@ exports.getAnalytics = async (req, res) => {
             totalWatchTimeHours: Math.round((totalWatchTime._sum.progress || 0) / 3600),
             recentActivity,
             mostWatched,
+            userGrowth: enrichedGrowth,
         });
     } catch (error) {
         logger.error('Get analytics error', { error: error.message, adminId: req.user.id });
@@ -291,6 +324,50 @@ exports.getAdminActions = async (req, res) => {
     }
 };
 
+// Bulk notify users
+exports.bulkNotify = async (req, res) => {
+    try {
+        const { title, message, target, selectedUserIds } = req.body;
+
+        let userIds = [];
+        if (target === 'ALL') {
+            const all = await prisma.user.findMany({ select: { id: true } });
+            userIds = all.map((u) => u.id);
+        } else if (target === 'APPROVED') {
+            const approved = await prisma.user.findMany({ where: { status: 'APPROVED' }, select: { id: true } });
+            userIds = approved.map((u) => u.id);
+        } else if (target === 'SELECTED') {
+            userIds = (selectedUserIds || []).map((id) => parseInt(id));
+        }
+
+        // Create notifications for all selected users
+        for (const uid of userIds) {
+            await createNotification(
+                uid,
+                'BULK_NOTIFY',
+                title,
+                message
+            );
+        }
+
+        // Log admin action
+        await prisma.adminAction.create({
+            data: {
+                adminId: req.user.id,
+                adminEmail: req.user.email,
+                action: 'BULK_NOTIFY',
+                description: `Bulk notification sent to ${userIds.length} users`,
+                metadata: JSON.stringify({ target, userIds, title }),
+            },
+        });
+
+        res.json({ notified: userIds.length });
+    } catch (error) {
+        logger.error('Bulk notify error', { error: error.message, adminId: req.user.id });
+        res.status(500).json({ error: 'Failed to send bulk notifications' });
+    }
+};
+
 // Get user details with full info
 exports.getUserDetails = async (req, res) => {
     try {
@@ -318,3 +395,101 @@ exports.getUserDetails = async (req, res) => {
     }
 };
 
+// Update user role
+exports.updateUserRole = async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+  const validRoles = ['USER', 'MODERATOR', 'ADMIN'];
+  if (!role || !validRoles.includes(role)) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+  try {
+    const user = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: { role },
+      select: { id: true, email: true, role: true },
+    });
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId: req.user.id,
+        adminEmail: req.user.email,
+        action: 'UPDATE_USER_ROLE',
+        targetId: user.id,
+        targetType: 'USER',
+        description: `Updated user ${user.email} role to ${role}`,
+        metadata: JSON.stringify({ role }),
+      },
+    });
+    res.json(user);
+  } catch (error) {
+    logger.error('Update user role error', { error: error.message, adminId: req.user.id });
+    res.status(500).json({ error: 'Failed to update user role' });
+  }
+};
+
+// Get/Manage Subscription Plans
+exports.getSubscriptionPlans = async (req, res) => {
+  try {
+    const plans = await prisma.subscriptionPlan.findMany({ orderBy: { id: 'asc' } });
+    res.json({ plans });
+  } catch (error) {
+    logger.error('Get subscription plans error', { error: error.message, adminId: req.user.id });
+    res.status(500).json({ error: 'Failed to fetch subscription plans' });
+  }
+};
+
+exports.createSubscriptionPlan = async (req, res) => {
+  const { name, durationMonths, price, features, isActive } = req.body;
+  try {
+    const plan = await prisma.subscriptionPlan.create({
+      data: {
+        name,
+        durationMonths,
+        price,
+        features: features || [],
+        isActive: isActive ?? true,
+      },
+    });
+    res.json(plan);
+  } catch (error) {
+    logger.error('Create subscription plan error', { error: error.message, adminId: req.user.id });
+    res.status(500).json({ error: 'Failed to create subscription plan' });
+  }
+};
+
+exports.updateSubscriptionPlan = async (req, res) => {
+  const { id } = req.params;
+  const { name, durationMonths, price, features, isActive } = req.body;
+  try {
+    const plan = await prisma.subscriptionPlan.update({
+      where: { id: parseInt(id) },
+      data: {
+        name,
+        durationMonths,
+        price,
+        features,
+        isActive,
+      },
+    });
+    res.json(plan);
+  } catch (error) {
+    logger.error('Update subscription plan error', { error: error.message, adminId: req.user.id });
+    res.status(500).json({ error: 'Failed to update subscription plan' });
+  }
+};
+
+exports.deleteSubscriptionPlan = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Soft delete by setting isActive to false
+    const plan = await prisma.subscriptionPlan.update({
+      where: { id: parseInt(id) },
+      data: { isActive: false },
+    });
+    res.json(plan);
+  } catch (error) {
+    logger.error('Delete subscription plan error', { error: error.message, adminId: req.user.id });
+    res.status(500).json({ error: 'Failed to delete subscription plan' });
+  }
+};

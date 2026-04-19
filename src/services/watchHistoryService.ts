@@ -45,4 +45,9 @@ export const watchHistoryService = {
         const { data } = await axios.delete(`${API_URL}/watch-history`);
         return data;
     },
+
+    async removeWatchHistory(id: number) {
+        const { data } = await axios.delete(`${API_URL}/watch-history/${id}`);
+        return data;
+    },
 };

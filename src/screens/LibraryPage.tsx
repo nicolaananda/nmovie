@@ -3,8 +3,12 @@ import ContentCard from '../components/ContentCard';
 import { AlertCircle, Film, Tv } from 'lucide-react';
 import { useState } from 'react';
 
+import EmptyState from '../components/EmptyState';
+import { Library } from 'lucide-react';
+import ContentCardSkeleton from '../components/ContentCardSkeleton';
+
 export default function LibraryPage() {
-  const { library } = useCatalog();
+  const { library, isLoading } = useCatalog();
   const [activeTab, setActiveTab] = useState<'all' | 'movie' | 'tv'>('all');
 
   const filteredLibrary = library.filter(
@@ -44,7 +48,13 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      {filteredLibrary.length > 0 ? (
+      {isLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 animate-slide-up">
+          {Array.from({ length: 8 }).map((_, idx) => (
+            <div key={idx} className="w-full"><ContentCardSkeleton key={idx} /></div>
+          ))}
+        </div>
+      ) : filteredLibrary.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 animate-slide-up">
           {filteredLibrary.map((item) => (
             <div key={item.id} className="transition-transform duration-300 hover:-translate-y-2">
@@ -52,16 +62,22 @@ export default function LibraryPage() {
             </div>
           ))}
         </div>
+      ) : library.length === 0 ? (
+        <EmptyState
+          icon={Library}
+          title="Your library is empty"
+          description="Browse and add titles to start compiling your personal collection."
+          actionLabel="Browse Now"
+          actionTo="/search"
+        />
       ) : (
         <div className="flex flex-col items-center justify-center py-32 text-gray-500 space-y-6">
           <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
             <AlertCircle size={40} className="opacity-50" />
           </div>
           <div className="text-center">
-            <h2 className="text-xl font-bold text-gray-300 mb-1">It's empty here</h2>
-            <p className="max-w-xs mx-auto">
-              Start adding movies and shows to your library to track what you want to watch.
-            </p>
+            <h2 className="text-xl font-bold text-gray-300 mb-1">No items</h2>
+            <p className="max-w-xs mx-auto">Try adding titles to your library from the details page.</p>
           </div>
         </div>
       )}

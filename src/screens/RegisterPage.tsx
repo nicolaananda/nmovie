@@ -11,14 +11,20 @@ export default function RegisterPage() {
     const [loading, setLoading] = useState(false);
     const { register } = useAuth();
     const navigate = useNavigate();
+    const [pendingView, setPendingView] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
         try {
-            await register(name, email, password);
-            navigate('/');
+            const registeredUser = await register(name, email, password);
+            // If the account is pending approval, show a dedicated pending screen/modal
+            if (registeredUser?.status === 'PENDING') {
+                setPendingView(true);
+            } else {
+                navigate('/');
+            }
         } catch (err: any) {
             setError(err.response?.data?.error || 'Failed to register');
         } finally {
@@ -27,6 +33,7 @@ export default function RegisterPage() {
     };
 
     return (
+        <>
         <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center p-4">
             <div className="w-full max-w-md bg-black/40 backdrop-blur-xl border border-white/10 p-8 rounded-2xl shadow-2xl">
                 <h2 className="text-3xl font-bold text-white mb-6 text-center">Create Account</h2>
@@ -92,6 +99,29 @@ export default function RegisterPage() {
 
                 <div className="mt-6 text-center text-xs text-gray-500">
                     Note: Your account will require admin approval before you can start watching.
+                </div>
+            </div>
+        </div>
+        {pendingView && <PendingAccountOverlay onClose={() => navigate('/login')} />}
+        </>
+    );
+}
+
+// Pending Account Overlay (rendered when pendingView is true)
+// This simple overlay is defined below so it can be toggled purely from state
+export function PendingAccountOverlay({ onClose }: { onClose: () => void }) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-black/70 border border-white/20 rounded-2xl p-6 w-full max-w-md text-white shadow-xl animate-fadeIn">
+                <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xl font-semibold">Account Pending Approval</h3>
+                    <button aria-label="Close" onClick={onClose} className="text-white/70 hover:text-white">×</button>
+                </div>
+                <p className="mb-6 text-sm text-gray-200">
+                    Your account has been created! An admin will review and approve your account. You'll receive a notification once approved.
+                </p>
+                <div className="flex justify-end">
+                    <button onClick={onClose} className="px-4 py-2 bg-primary-600 rounded hover:bg-primary-700">Go to Login</button>
                 </div>
             </div>
         </div>

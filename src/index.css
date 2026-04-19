@@ -114,3 +114,20 @@ img {
       #1a1a1a 36%);
   background-size: 1000px 100%;
 }
+
+/* Typography utility classes for consistent hierarchy */
+.page-title {
+  @apply text-3xl md:text-4xl font-bold text-white;
+}
+.section-title {
+  @apply text-xl md:text-2xl font-bold text-white;
+}
+.card-title {
+  @apply text-base font-semibold text-white;
+}
+.body-text {
+  @apply text-sm text-gray-400;
+}
+.caption-text {
+  @apply text-xs text-gray-500;
+}

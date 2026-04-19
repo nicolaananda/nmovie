@@ -2,10 +2,12 @@ export interface User {
     id: number;
     email: string;
     name: string | null;
-    role: 'USER' | 'ADMIN';
+    role: 'USER' | 'ADMIN' | 'MODERATOR';
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     token?: string;
     subscriptionEndsAt?: string;
+    createdAt?: string;
+    lastLoginAt?: string;
 }
 
 export interface AuthState {

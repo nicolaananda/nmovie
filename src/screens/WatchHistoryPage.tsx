@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { watchHistoryService, WatchProgress } from '../services/watchHistoryService';
-import { History, Loader2, Trash2, Play } from 'lucide-react';
+import { History, Trash2, Play } from 'lucide-react';
+import EmptyState from '../components/EmptyState';
+import Skeleton from '../components/Skeleton';
 import { useNavigate } from 'react-router-dom';
 
 export default function WatchHistoryPage() {
@@ -48,7 +50,7 @@ export default function WatchHistoryPage() {
     if (loading) {
         return (
             <div className="min-h-screen bg-[#0f0f0f] flex items-center justify-center">
-                <Loader2 className="animate-spin text-primary-500" size={48} />
+                <Skeleton variant="card" className="w-96 h-52" />
             </div>
         );
     }
@@ -77,11 +79,13 @@ export default function WatchHistoryPage() {
                 </div>
 
                 {history.length === 0 ? (
-                    <div className="text-center py-20">
-                        <History size={64} className="mx-auto text-gray-600 mb-4" />
-                        <p className="text-gray-400 text-lg">No watch history yet</p>
-                        <p className="text-gray-500 mt-2">Start watching to see your history here</p>
-                    </div>
+                    <EmptyState
+                      icon={History}
+                      title="No watch history yet"
+                      description="Start watching to see your history here"
+                      actionLabel="Browse"
+                      actionTo="/search"
+                    />
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                         {history.map((item) => (

@@ -67,8 +67,6 @@ class ProviderService {
 
       console.log('[ProviderService] Got', streams.length, 'streams from proxy');
       return streams;
-
-      return streams;
     } catch (error: any) {
       console.error('[ProviderService] Error fetching streams:', error);
       return [];
@@ -119,4 +117,3 @@ class ProviderService {
 }
 
 export const providerService = new ProviderService();
-
