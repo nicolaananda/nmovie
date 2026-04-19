@@ -7,6 +7,7 @@ import Skeleton from '../components/Skeleton';
 import { useVidrockProgress } from '../hooks/useVidrockProgress';
 import SubtitleOverlay from '../components/SubtitleOverlay';
 import { parseSrt, type SubtitleCue } from '../utils/srtParser';
+import { customSubtitleService, type ApprovedSubtitle } from '../services/customSubtitleService';
 
 export default function PlayerPage() {
   const [searchParams] = useSearchParams();
@@ -57,10 +58,13 @@ export default function PlayerPage() {
   const [srtCues, setSrtCues] = useState<SubtitleCue[]>([]);
   const [srtFileName, setSrtFileName] = useState('');
   const [vidrockTime, setVidrockTime] = useState(0);
+  const [approvedSubs, setApprovedSubs] = useState<ApprovedSubtitle[]>([]);
+  const [showSubMenu, setShowSubMenu] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!isVidrockEmbed) return;
+    if (!isVidrockEmbed || !tmdbId) return;
 
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== 'https://vidrock.net') return;
@@ -74,7 +78,21 @@ export default function PlayerPage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [isVidrockEmbed]);
+  }, [isVidrockEmbed, tmdbId]);
+
+  useEffect(() => {
+    if (!isVidrockEmbed || !tmdbId) return;
+    customSubtitleService.getApproved(tmdbId, season, episode)
+      .then(setApprovedSubs)
+      .catch(() => {});
+  }, [isVidrockEmbed, tmdbId, season, episode]);
+
+  const loadApprovedSub = useCallback((sub: ApprovedSubtitle) => {
+    const cues = parseSrt(sub.content);
+    setSrtCues(cues);
+    setSrtFileName(`${sub.language} - ${sub.user.name}`);
+    setShowSubMenu(false);
+  }, []);
 
   const handleSrtUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -87,11 +105,33 @@ export default function PlayerPage() {
       const cues = parseSrt(content);
       setSrtCues(cues);
       setSrtFileName(file.name);
+
+      if (tmdbId) {
+        const lang = prompt('Language code for this subtitle? (e.g. id, en, ja)', 'id');
+        if (lang) {
+          setUploadStatus('Uploading...');
+          customSubtitleService.upload({
+            tmdbId,
+            mediaType: mediaType || 'movie',
+            seasonNumber: season,
+            episodeNumber: episode,
+            language: lang,
+            fileName: file.name,
+            content,
+          }).then(() => {
+            setUploadStatus('Uploaded! Pending admin approval.');
+            setTimeout(() => setUploadStatus(''), 3000);
+          }).catch(() => {
+            setUploadStatus('Upload failed');
+            setTimeout(() => setUploadStatus(''), 3000);
+          });
+        }
+      }
     };
     reader.readAsText(file);
 
     e.target.value = '';
-  }, []);
+  }, [tmdbId, mediaType, season, episode]);
 
   const clearSrt = useCallback(() => {
     setSrtCues([]);
@@ -233,7 +273,7 @@ export default function PlayerPage() {
 
         <div className="pointer-events-auto flex items-center gap-2">
           {isVidrockEmbed && (
-            <>
+            <div className="relative">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -251,15 +291,46 @@ export default function PlayerPage() {
                 </div>
               ) : (
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setShowSubMenu(!showSubMenu)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md hover:bg-white/20 border border-white/10 text-white text-xs font-medium transition-colors"
-                  title="Upload SRT subtitle"
+                  title="Subtitles"
                 >
                   <Subtitles size={14} />
-                  <span>SRT</span>
+                  <span>SUB{approvedSubs.length > 0 ? ` (${approvedSubs.length})` : ''}</span>
                 </button>
               )}
-            </>
+              {uploadStatus && (
+                <div className="absolute top-full mt-1 right-0 bg-black/80 backdrop-blur-md border border-white/10 rounded-lg px-3 py-1.5 text-[11px] text-green-300 whitespace-nowrap">
+                  {uploadStatus}
+                </div>
+              )}
+              {showSubMenu && !srtFileName && (
+                <div className="absolute top-full mt-2 right-0 bg-black/90 backdrop-blur-md border border-white/10 rounded-xl p-2 min-w-[200px] z-30">
+                  {approvedSubs.length > 0 && (
+                    <div className="mb-2">
+                      <div className="text-[10px] text-gray-500 uppercase px-2 mb-1">Community Subtitles</div>
+                      {approvedSubs.map((sub) => (
+                        <button
+                          key={sub.id}
+                          onClick={() => loadApprovedSub(sub)}
+                          className="w-full text-left px-3 py-2 rounded-lg text-sm text-white hover:bg-white/10 flex items-center justify-between"
+                        >
+                          <span>{sub.language.toUpperCase()} — {sub.user.name}</span>
+                          <span className="text-[10px] text-gray-500">{sub.fileName}</span>
+                        </button>
+                      ))}
+                      <div className="border-t border-white/10 my-1" />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { fileInputRef.current?.click(); setShowSubMenu(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-sm text-white hover:bg-white/10"
+                  >
+                    Upload SRT file...
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           {effectiveType !== 'embed' && (
             <button
