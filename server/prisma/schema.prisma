@@ -64,6 +64,7 @@ model User {
   notifications       Notification[]
   activityLogs        ActivityLog[]
   devices             UserDevice[]
+  customSubtitles     CustomSubtitle[]
 }
 
 model SubscriptionPlan {
@@ -155,15 +156,33 @@ model UserDevice {
   @@index([userId])
 }
 
+model CustomSubtitle {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tmdbId        String
+  mediaType     String
+  seasonNumber  Int?
+  episodeNumber Int?
+  language      String
+  fileName      String
+  content       String
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+
+  @@index([tmdbId, status])
+  @@index([userId])
+}
+
 model AdminAction {
   id          Int      @id @default(autoincrement())
   adminId     Int
   adminEmail  String
-  action      String   // e.g., "APPROVE_USER", "DELETE_USER", "UPDATE_SUBSCRIPTION"
-  targetId    Int?     // ID of affected entity
-  targetType  String?  // e.g., "USER", "CONTENT"
+  action      String
+  targetId    Int?
+  targetType  String?
   description String
-  metadata    String?  // JSON string
+  metadata    String?
   createdAt   DateTime @default(now())
 
   @@index([adminId, createdAt])

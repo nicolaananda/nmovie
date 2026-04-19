@@ -28,7 +28,7 @@ const corsOptions = {
 // Handle preflight OPTIONS for all routes
 app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
 // Request logging
 app.use((req, res, next) => {
@@ -54,6 +54,7 @@ app.use('/api/library', require('./routes/libraryRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/watch-history', require('./routes/watchHistoryRoutes'));
+app.use('/api/custom-subtitles', require('./routes/customSubtitleRoutes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
