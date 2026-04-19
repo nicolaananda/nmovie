@@ -240,6 +240,8 @@ Streams Found: ${streams?.length || 0}
                     <div className="absolute top-0 right-0 bg-gradient-to-r from-green-600 to-green-500 text-white text-[10px] uppercase font-bold px-3 py-1 rounded-bl-lg shadow-lg flex items-center gap-1">
                       <span>⚡ Less Ads</span>
                       <span className="opacity-60">•</span>
+                      <span>▶ Resume</span>
+                      <span className="opacity-60">•</span>
                       <span>Recommended</span>
                     </div>
                   )}

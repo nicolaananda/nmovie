@@ -123,14 +123,18 @@ export default function MetadataPage() {
     const params = new URLSearchParams({
       url: streamUrl,
       title,
+      tmdbId: String(tmdbId),
     });
 
     if (content.imdb_id) {
       params.set('imdbId', content.imdb_id);
     }
 
-    // Use component-level streamType (movie/series) for mediaType param
     params.set('mediaType', streamType);
+
+    if (content.poster) {
+      params.set('poster', content.poster);
+    }
 
     if (isSeries) {
       params.set('season', String(selectedSeason));
@@ -423,13 +427,30 @@ export default function MetadataPage() {
                       </div>
                     ) : (
                       <div className="space-y-4 p-4 max-h-[600px] overflow-y-auto custom-scrollbar">
-                        {streams.map((stream, idx) => (
+                        {[...streams].sort((a, b) => {
+                          const aName = (a.providerName || a.provider || a.addonName || '').toLowerCase();
+                          const bName = (b.providerName || b.provider || b.addonName || '').toLowerCase();
+                          const aVidrock = aName.includes('vidrock') || (a.url || '').includes('vidrock.net');
+                          const bVidrock = bName.includes('vidrock') || (b.url || '').includes('vidrock.net');
+                          if (aVidrock && !bVidrock) return -1;
+                          if (!aVidrock && bVidrock) return 1;
+                          return 0;
+                        }).map((stream, idx) => {
+                          const sName = (stream.providerName || stream.provider || stream.addonName || '').toLowerCase();
+                          const isVidrock = sName.includes('vidrock') || (stream.url || '').includes('vidrock.net');
+                          return (
                           <div
                             key={idx}
-                            className="flex flex-col md:flex-row items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 gap-4 group"
+                            className={`flex flex-col md:flex-row items-center justify-between p-4 rounded-xl transition-all gap-4 group ${isVidrock
+                              ? 'bg-green-500/10 hover:bg-green-500/15 border-2 border-green-500/40'
+                              : 'bg-white/5 hover:bg-white/10 border border-white/5'
+                            }`}
                           >
                             <div className="flex items-center gap-4 flex-1 min-w-0 w-full md:w-auto">
-                              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center shrink-0 border border-white/5 font-bold text-xs text-gray-500">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-xs ${isVidrock
+                                ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                                : 'bg-white/5 border border-white/5 text-gray-500'
+                              }`}>
                                 {idx + 1}
                               </div>
                               <div className="flex flex-col min-w-0 flex-1">
@@ -450,6 +471,11 @@ export default function MetadataPage() {
                                       Embed
                                     </span>
                                   )}
+                                  {isVidrock && (
+                                    <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-green-500/20 text-green-400 border border-green-500/30">
+                                      ▶ Supports Resume
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1 truncate">
                                   {stream.description || stream.addonName || 'Direct Stream'} • {stream.size ? (stream.size / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown Size'}
@@ -461,7 +487,9 @@ export default function MetadataPage() {
                               onClick={() => handlePlayStream(stream.url || stream.sources?.[0] || '', stream.type)}
                               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-sm transition-transform active:scale-95 shadow-lg w-full md:w-auto justify-center ${!user || !isApproved
                                 ? 'bg-white/5 text-gray-400 cursor-not-allowed'
-                                : 'bg-white text-black hover:bg-primary-500 hover:text-white'
+                                : isVidrock
+                                  ? 'bg-green-500 text-white hover:bg-green-600'
+                                  : 'bg-white text-black hover:bg-primary-500 hover:text-white'
                                 }`}
                             >
                               {!user ? (
@@ -482,7 +510,8 @@ export default function MetadataPage() {
                               )}
                             </button>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
