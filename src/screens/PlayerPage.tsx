@@ -14,6 +14,7 @@ export default function PlayerPage() {
   const navigate = useNavigate();
   const [playing, setPlaying] = useState(true);
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [cssFull, setCssFull] = useState(false);
   const playerRef = useRef<ReactPlayer>(null);
   const embedContainerRef = useRef<HTMLDivElement>(null);
 
@@ -193,6 +194,34 @@ export default function PlayerPage() {
     return () => { document.title = prev; };
   }, [title]);
 
+  // Intercept fullscreen: if iframe goes fullscreen, switch to container fullscreen
+  useEffect(() => {
+    if (!isVidrockEmbed) return;
+
+    const handleFullscreenChange = () => {
+      const fsEl = document.fullscreenElement;
+      if (fsEl && fsEl.tagName === 'IFRAME' && embedContainerRef.current) {
+        document.exitFullscreen().then(() => {
+          embedContainerRef.current?.requestFullscreen();
+        }).catch(() => {
+          setCssFull(true);
+        });
+      }
+      if (document.fullscreenElement) {
+        document.documentElement.style.overflow = 'hidden';
+      } else {
+        document.documentElement.style.overflow = '';
+        setCssFull(false);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.documentElement.style.overflow = '';
+    };
+  }, [isVidrockEmbed]);
+
   useEffect(() => {
     const onKeyDown = async (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
@@ -203,13 +232,18 @@ export default function PlayerPage() {
         try {
           if (document.fullscreenElement) {
             await document.exitFullscreen();
+            setCssFull(false);
           } else {
             const el = embedContainerRef.current || document.querySelector('video') as HTMLElement;
             if (el?.requestFullscreen) {
               await el.requestFullscreen();
+            } else {
+              setCssFull(f => !f);
             }
           }
-        } catch { /* ignore */ }
+        } catch {
+          setCssFull(f => !f);
+        }
       } else if (key === 'escape') {
         navigate(-1);
       } else if (key === 'arrowleft') {
@@ -351,15 +385,20 @@ export default function PlayerPage() {
             {effectiveType === 'embed' ? (
               <div
                 ref={embedContainerRef}
-                className="w-full h-full relative overflow-hidden bg-black"
+                className={`w-full h-full relative overflow-hidden bg-black ${cssFull ? 'fixed inset-0 z-[9999]' : ''}`}
                 onDoubleClick={async () => {
                   try {
                     if (document.fullscreenElement) {
                       await document.exitFullscreen();
+                      setCssFull(false);
+                    } else if (embedContainerRef.current?.requestFullscreen) {
+                      await embedContainerRef.current.requestFullscreen();
                     } else {
-                      await embedContainerRef.current?.requestFullscreen();
+                      setCssFull(f => !f);
                     }
-                  } catch { /* ignore */ }
+                  } catch {
+                    setCssFull(f => !f);
+                  }
                 }}
               >
                 {progressSeeded ? (
