@@ -41,7 +41,7 @@ export default function PlayerPage() {
 
   const isVidrockEmbed = effectiveType === 'embed' && (effectiveUrl?.includes('vidrock.net') ?? false);
 
-  useVidrockProgress({
+  const { ready: progressSeeded } = useVidrockProgress({
     tmdbId,
     mediaType,
     title,
@@ -100,7 +100,12 @@ export default function PlayerPage() {
     }
   }, [subtitlesJson]);
 
-  // Keyboard shortcuts
+  useEffect(() => {
+    const prev = document.title;
+    document.title = title;
+    return () => { document.title = prev; };
+  }, [title]);
+
   useEffect(() => {
     const onKeyDown = async (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
@@ -193,15 +198,17 @@ export default function PlayerPage() {
           <div className="w-full h-full">
             {effectiveType === 'embed' ? (
               <>
-                <iframe
-                  src={validatedUrl}
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  allowFullScreen
-                  style={{ position: 'absolute', top: 0, left: 0 }}
-                  onLoad={() => setIframeLoaded(true)}
-                />
-                {!iframeLoaded && (
+                {progressSeeded ? (
+                  <iframe
+                    src={validatedUrl}
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                    allowFullScreen
+                    style={{ position: 'absolute', top: 0, left: 0 }}
+                    onLoad={() => setIframeLoaded(true)}
+                  />
+                ) : null}
+                {(!iframeLoaded || !progressSeeded) && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/80">
                     <Skeleton variant="card" className="w-1/2 h-1/2" />
                   </div>
