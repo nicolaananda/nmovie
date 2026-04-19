@@ -423,7 +423,7 @@ export default function MetadataPage() {
                       <div className="flex flex-col items-center justify-center h-[300px] text-gray-400 gap-2">
                         <Tv size={48} className="opacity-20" />
                         <p>No streams found for this content.</p>
-                        <button onClick={() => refetchStreams()} className="text-primary-400 hover:underline">Try Refreshing</button>
+                        <button onClick={() => refetchStreams()} className="text-primary-400 hover:underline">Try Refreshing or Login first </button>
                       </div>
                     ) : (
                       <div className="space-y-4 p-4 max-h-[600px] overflow-y-auto custom-scrollbar">

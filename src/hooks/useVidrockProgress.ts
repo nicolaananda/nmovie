@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { watchHistoryService } from '../services/watchHistoryService';
 
 interface VidrockMediaData {
@@ -48,6 +48,79 @@ export function useVidrockProgress(options: UseVidrockProgressOptions) {
   const { tmdbId, mediaType, title, poster, season, episode, enabled } = options;
   const lastSaveRef = useRef<number>(0);
   const progressRef = useRef<{ watched: number; duration: number }>({ watched: 0, duration: 0 });
+  const [ready, setReady] = useState(!enabled);
+
+  // Seed localStorage with server-side progress before iframe mounts
+  useEffect(() => {
+    if (!enabled || !tmdbId) {
+      setReady(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    const seedProgress = async () => {
+      try {
+        const serverProgress = await watchHistoryService.getProgress(tmdbId, season, episode);
+
+        if (cancelled) return;
+        if (!serverProgress || serverProgress.progress <= 0) {
+          setReady(true);
+          return;
+        }
+
+        const existing = JSON.parse(localStorage.getItem('vidRockProgress') || '[]');
+        const items = Array.isArray(existing) ? existing : [];
+        const tmdbNum = parseInt(tmdbId);
+        const vidType = mediaType === 'series' || mediaType === 'tv' ? 'tv' : 'movie';
+
+        const idx = items.findIndex((item: any) => item.id === tmdbNum);
+        const entry: any = {
+          id: tmdbNum,
+          type: vidType,
+          title: title || '',
+          poster_path: poster?.replace('https://image.tmdb.org/t/p/w500', '') || '',
+          progress: {
+            watched: serverProgress.progress,
+            duration: serverProgress.duration || 0,
+          },
+          last_updated: Date.now(),
+        };
+
+        if (vidType === 'tv' && season && episode) {
+          const key = `s${season}e${episode}`;
+          entry.last_season_watched = String(season);
+          entry.last_episode_watched = String(episode);
+          entry.show_progress = {
+            [key]: {
+              season: String(season),
+              episode: String(episode),
+              progress: {
+                watched: serverProgress.progress,
+                duration: serverProgress.duration || 0,
+              },
+              last_updated: Date.now(),
+            },
+          };
+        }
+
+        if (idx >= 0) {
+          items[idx] = { ...items[idx], ...entry };
+        } else {
+          items.push(entry);
+        }
+
+        localStorage.setItem('vidRockProgress', JSON.stringify(items));
+      } catch (err) {
+        console.warn('[useVidrockProgress] Failed to seed progress from server:', err);
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    };
+
+    seedProgress();
+    return () => { cancelled = true; };
+  }, [enabled, tmdbId, mediaType, title, poster, season, episode]);
 
   useEffect(() => {
     if (!enabled || !tmdbId) return;
@@ -123,4 +196,6 @@ export function useVidrockProgress(options: UseVidrockProgressOptions) {
       }
     };
   }, [enabled, tmdbId, mediaType, title, poster, season, episode]);
+
+  return { ready };
 }
