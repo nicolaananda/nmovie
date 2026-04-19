@@ -11,8 +11,10 @@ import {
   TrendingUp,
   Clock,
   Search,
+  Subtitles,
 } from 'lucide-react';
 import SubscriptionPlanManager from '../components/admin/SubscriptionPlanManager';
+import CustomSubtitleManager from '../components/admin/CustomSubtitleManager';
 
 interface Analytics {
   totalUsers: number;
@@ -24,7 +26,7 @@ interface Analytics {
   userGrowth?: Array<{ date: string; count: number }>;
 }
 
-type TabType = 'overview' | 'users' | 'activity' | 'logs' | 'plans';
+type TabType = 'overview' | 'users' | 'activity' | 'logs' | 'plans' | 'subtitles';
 
 export default function EnhancedAdminDashboard() {
   const navigate = useNavigate();
@@ -204,6 +206,7 @@ export default function EnhancedAdminDashboard() {
     { id: 'activity', label: 'Activity', icon: Activity },
     { id: 'logs', label: 'Logs', icon: Clock },
     { id: 'plans', label: 'Plans', icon: TrendingUp },
+    { id: 'subtitles', label: 'Subtitles', icon: Subtitles },
   ];
 
   if (loading && !analytics) {
@@ -634,10 +637,15 @@ export default function EnhancedAdminDashboard() {
           </div>
         )}
 
-        {/* Plans Tab - dynamic component */}
         {activeTab === 'plans' && (
           <div className="mt-6">
             <SubscriptionPlanManager />
+          </div>
+        )}
+
+        {activeTab === 'subtitles' && (
+          <div className="mt-6">
+            <CustomSubtitleManager />
           </div>
         )}
       </div>
