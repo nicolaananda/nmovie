@@ -50,35 +50,45 @@ exports.updateWatchProgress = async (req, res) => {
         const { tmdbId, type, name, poster, seasonNumber, episodeNumber, progress, duration } = req.body;
 
         const completed = duration ? (progress / duration) >= 0.9 : false;
+        const sn = seasonNumber != null ? seasonNumber : 0;
+        const en = episodeNumber != null ? episodeNumber : 0;
 
-        const watchHistory = await prisma.watchHistory.upsert({
+        const existing = await prisma.watchHistory.findFirst({
             where: {
-                userId_tmdbId_seasonNumber_episodeNumber: {
-                    userId: req.user.id,
-                    tmdbId,
-                    seasonNumber: seasonNumber || null,
-                    episodeNumber: episodeNumber || null,
-                },
-            },
-            update: {
-                progress,
-                duration,
-                completed,
-                lastWatchedAt: new Date(),
-            },
-            create: {
                 userId: req.user.id,
                 tmdbId,
-                type,
-                name,
-                poster,
-                seasonNumber,
-                episodeNumber,
-                progress,
-                duration,
-                completed,
+                seasonNumber: sn,
+                episodeNumber: en,
             },
         });
+
+        let watchHistory;
+        if (existing) {
+            watchHistory = await prisma.watchHistory.update({
+                where: { id: existing.id },
+                data: {
+                    progress,
+                    duration,
+                    completed,
+                    lastWatchedAt: new Date(),
+                },
+            });
+        } else {
+            watchHistory = await prisma.watchHistory.create({
+                data: {
+                    userId: req.user.id,
+                    tmdbId,
+                    type,
+                    name,
+                    poster,
+                    seasonNumber: sn,
+                    episodeNumber: en,
+                    progress,
+                    duration,
+                    completed,
+                },
+            });
+        }
 
         // Log activity
         await prisma.activityLog.create({
@@ -104,14 +114,15 @@ exports.getWatchProgress = async (req, res) => {
         const { tmdbId } = req.params;
         const { seasonNumber, episodeNumber } = req.query;
 
-        const progress = await prisma.watchHistory.findUnique({
+        const sn = seasonNumber ? parseInt(seasonNumber) : 0;
+        const en = episodeNumber ? parseInt(episodeNumber) : 0;
+
+        const progress = await prisma.watchHistory.findFirst({
             where: {
-                userId_tmdbId_seasonNumber_episodeNumber: {
-                    userId: req.user.id,
-                    tmdbId,
-                    seasonNumber: seasonNumber ? parseInt(seasonNumber) : null,
-                    episodeNumber: episodeNumber ? parseInt(episodeNumber) : null,
-                },
+                userId: req.user.id,
+                tmdbId,
+                seasonNumber: sn,
+                episodeNumber: en,
             },
         });
 
