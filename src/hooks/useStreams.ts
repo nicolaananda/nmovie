@@ -7,6 +7,7 @@ export function useStreams(contentId: string, type: 'movie' | 'series', season?:
   const [loading, setLoading] = useState(true);
   const [loadingOthers, setLoadingOthers] = useState(false);
   const [error, setError] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -37,14 +38,18 @@ export function useStreams(contentId: string, type: 'movie' | 'series', season?:
     }
 
     return () => { mounted = false; };
-  }, [contentId, type, season, episode]); // Refetch on any param change
+  }, [contentId, type, season, episode, refreshKey]); // Refetch on any param change or refresh trigger
 
   return {
     data: streams,
     isLoading: loading,
     isLoadingMore: loadingOthers, // New state for UI
     error,
-    refetch: () => setStreams([]) // Simplified refetch trigger
+    refetch: () => {
+      // Trigger a refetch by clearing streams and bumping refresh key
+      setStreams([]);
+      setRefreshKey(k => k + 1);
+    }
   };
 }
 
@@ -55,4 +60,3 @@ export function useProviders() {
     staleTime: 0, // No cache - always fresh
   });
 }
-

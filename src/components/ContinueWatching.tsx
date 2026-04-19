@@ -47,8 +47,30 @@ export default function ContinueWatching() {
                     <div
                         key={item.id}
                         className="group relative cursor-pointer"
-                        onClick={() => handlePlay(item)}
                     >
+                        {/* Remove button */}
+                        <button
+                            aria-label="Remove from continue watching"
+                            title="Remove"
+                            onClick={async (e) => {
+                                e.stopPropagation();
+                                if (window.confirm('Remove from Continue Watching?')) {
+                                    try {
+                                        if (typeof item.id === 'number') {
+                                            await watchHistoryService.removeWatchHistory(item.id);
+                                            setItems((curr) => curr.filter((x) => x.id !== item.id));
+                                        }
+                                    } catch (err) {
+                                        console.error('Failed to remove', err);
+                                    }
+                                }
+                            }}
+                            className="absolute top-1 right-1 z-10 bg-black/70 text-white rounded-full w-7 h-7 flex items-center justify-center hover:bg-black/90"
+                        >
+                            <span className="text-xs">✕</span>
+                        </button>
+
+                        <div onClick={() => handlePlay(item)} className="group cursor-pointer">
                         <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
                             {item.poster ? (
                                 <img
@@ -85,6 +107,7 @@ export default function ContinueWatching() {
                                     {Math.round((item.progress / item.duration) * 100)}%
                                 </div>
                             )}
+                        </div>
                         </div>
 
                         <div className="mt-2">

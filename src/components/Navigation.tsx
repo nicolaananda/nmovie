@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, Library, Settings, Menu, X, LogIn, LogOut, Shield, User, History } from 'lucide-react';
+import { Home, Search, Library, Settings, LogIn, LogOut, Shield, User, History, Film } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationBell from './NotificationBell';
@@ -10,7 +10,7 @@ export default function Navigation() {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileMenuOpen] = useState(false);
   const { user, logout, isAdmin } = useAuth();
 
   useEffect(() => {
@@ -32,6 +32,9 @@ export default function Navigation() {
     navItems.push({ to: '/profile', icon: User, label: 'Profile' });
     navItems.push({ to: '/settings', icon: Settings, label: 'Settings' });
   }
+
+  // Genres page
+  navItems.push({ to: '/genres', icon: Film, label: 'Genres' });
 
   if (isAdmin) {
     navItems.push({ to: '/admin', icon: Shield, label: 'Admin' });
@@ -108,65 +111,34 @@ export default function Navigation() {
               )}
             </div>
 
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors z-50"
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+            {/* Mobile bottom tab bar will replace the old full-screen mobile menu */}
           </div>
         </div>
       </nav>
-
-      {/* Mobile Menu Overlay */}
-      <div
-        className={cn(
-          'fixed inset-0 z-40 bg-[#0f0f0f] md:hidden transition-all duration-300 flex items-center justify-center',
-          isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
-        )}
-      >
-        <div className="flex flex-col gap-4 w-full px-8">
-          {navItems.map(({ to, icon: Icon, label }, idx) => (
-            <Link
-              key={to}
-              to={to}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={cn(
-                'flex items-center gap-4 p-4 rounded-xl border border-white/5 transition-all duration-300 transform',
-                currentPath === to
-                  ? 'bg-primary-600 text-white border-primary-500/50 shadow-lg shadow-primary-900/40 translate-x-2'
-                  : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white hover:translate-x-2'
-              )}
-              style={{ transitionDelay: `${idx * 50}ms` }}
-            >
-              <Icon size={24} />
-              <span className="text-lg font-bold">{label}</span>
-            </Link>
-          ))}
-
-          {user ? (
-            <button
-              onClick={() => {
-                logout();
-                setIsMobileMenuOpen(false);
-                navigate('/login');
-              }}
-              className="flex items-center gap-4 p-4 rounded-xl border border-white/5 transition-all duration-300 transform bg-white/5 text-red-400 hover:bg-red-500/10 hover:translate-x-2 mt-4"
-            >
-              <LogOut size={24} />
-              <span className="text-lg font-bold">Logout</span>
-            </button>
-          ) : (
-            <Link
-              to="/login"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center gap-4 p-4 rounded-xl border border-white/5 transition-all duration-300 transform bg-primary-600 text-white shadow-lg shadow-primary-900/40 translate-x-2 mt-4"
-            >
-              <LogIn size={24} />
-              <span className="text-lg font-bold">Login</span>
-            </Link>
-          )}
+      {/* Mobile bottom tab bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f]/90 backdrop-blur-xl border-t border-white/10" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex justify-between text-sm text-gray-400">
+          {[
+            { to: '/', Icon: Home, label: 'Home' },
+            { to: '/search', Icon: Search, label: 'Search' },
+            { to: '/library', Icon: Library, label: 'Library' },
+            { to: '/profile', Icon: User, label: 'Profile' },
+          ].map(({ to, Icon, label }, idx) => {
+            const isActive = currentPath === to;
+            return (
+              <Link
+                key={to + idx}
+                to={to}
+                className={cn(
+                  'flex-1 flex flex-col items-center justify-center py-2',
+                  isActive ? 'text-primary-500' : 'text-gray-400 hover:text-white'
+                )}
+              >
+                <Icon size={20} />
+                <span className="text-xs mt-1">{label}</span>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </>

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { useSearchContent } from '../hooks/useContent';
 import ContentCard from '../components/ContentCard';
-import LoadingSpinner from '../components/LoadingSpinner';
+import ContentCardSkeleton from '../components/ContentCardSkeleton';
+import EmptyState from '../components/EmptyState';
 import ErrorMessage from '../components/ErrorMessage';
 
 export default function SearchPage() {
@@ -15,7 +16,7 @@ export default function SearchPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(query);
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [query]);
@@ -43,10 +44,12 @@ export default function SearchPage() {
       {/* Results */}
       <div className="max-w-8xl mx-auto">
         {loading ? (
-          <div className="flex justify-center py-20">
-            <LoadingSpinner size="large" />
+          <div className="flex gap-4 flex-wrap justify-center py-8">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <ContentCardSkeleton key={idx} />
+            ))}
           </div>
-        ) : error ? (
+          ) : error ? (
           <ErrorMessage
             message="An error occurred while searching."
             onRetry={() => handleSearch()}
@@ -62,9 +65,11 @@ export default function SearchPage() {
                 ))}
               </div>
             ) : query.length > 2 && !loading ? (
-              <div className="text-center py-20 text-gray-500 text-xl font-light">
-                No results found for "{query}".
-              </div>
+              <EmptyState
+                icon={Search}
+                title={`No results found for "${query}"`}
+                description="Try different keywords or check your spelling."
+              />
             ) : (
               <div className="flex flex-col items-center justify-center py-32 text-gray-800 space-y-4">
                 <Search size={64} className="opacity-20" />

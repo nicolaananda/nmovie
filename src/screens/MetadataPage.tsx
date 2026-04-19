@@ -6,6 +6,8 @@ import { useStreams } from '../hooks/useStreams';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { subtitleService } from '../services/subtitleService';
+import ContentCard from '../components/ContentCard';
+import { tmdbService } from '../services/tmdbService';
 import type { Subtitle } from '../types/metadata';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,6 +53,21 @@ export default function MetadataPage() {
   );
 
   const primaryStream = streams && streams.length > 0 ? streams[0] : null;
+
+  // Similar content section
+  const [similar, setSimilar] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchSimilar = async () => {
+      try {
+        const data = await (tmdbService as any).getSimilar(mediaType, tmdbId);
+        setSimilar(data);
+      } catch (err) {
+        console.error('Error loading similar content', err);
+      }
+    };
+    fetchSimilar();
+  }, [tmdbId, mediaType]);
 
   // Fetch subtitles (all will be loaded in player)
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
@@ -189,6 +206,18 @@ export default function MetadataPage() {
           <div className="absolute inset-0 bg-[#0f0f0f]" />
         )}
       </div>
+
+      {/* Similar Content Section */}
+      {similar && similar.length > 0 && (
+        <section className="px-4 md:px-12 mx-auto max-w-7xl py-6">
+          <h3 className="text-2xl font-bold mb-3 text-white">You Might Also Like</h3>
+          <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+            {similar.slice(0, 12).map((s) => (
+              <ContentCard key={s.id} content={s as any} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* CONTENT LAYER */}
       <div className="relative z-10 pt-24 px-4 md:px-12 max-w-7xl mx-auto flex flex-col md:flex-row gap-10">
@@ -467,4 +496,3 @@ export default function MetadataPage() {
     </div>
   );
 }
-

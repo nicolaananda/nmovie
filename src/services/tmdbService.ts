@@ -38,6 +38,17 @@ class TMDBService {
     }
   }
 
+  async getGenres(): Promise<{ id: number; name: string }[]> {
+    try {
+      const response = await this.api.get('/genre/movie/list');
+      // Normalize to common shape
+      return response.data.genres || [];
+    } catch (error) {
+      console.error('Error fetching genres:', error);
+      return [];
+    }
+  }
+
   async search(query: string): Promise<StreamingContent[]> {
     try {
       const response = await this.api.get('/search/multi', {
@@ -61,6 +72,16 @@ class TMDBService {
     } catch (error) {
       console.error('Error fetching content details:', error);
       return null;
+    }
+  }
+
+  async getSimilar(type: 'movie' | 'tv', id: number): Promise<StreamingContent[]> {
+    try {
+      const response = await this.api.get(`/${type}/${id}/similar`);
+      return response.data.results.map((item: any) => this.transformToStreamingContent(item, type));
+    } catch (error) {
+      console.error('Error fetching similar content:', error);
+      return [];
     }
   }
 
@@ -120,4 +141,3 @@ class TMDBService {
 }
 
 export const tmdbService = new TMDBService();
-

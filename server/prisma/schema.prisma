@@ -55,6 +55,8 @@ model User {
   lastLoginAt         DateTime?
   lastLoginIp         String?
   createdAt           DateTime         @default(now())
+  resetToken          String?
+  resetTokenExpiry    DateTime?
   updatedAt           DateTime         @updatedAt
 
   library             LibraryItem[]
@@ -167,4 +169,3 @@ model AdminAction {
   @@index([adminId, createdAt])
   @@index([createdAt])
 }
-

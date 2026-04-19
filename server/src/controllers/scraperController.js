@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { loadManifest, loadScraperCode, executeScraper, extractQuality, convertSrtToVtt } = require('../utils/scraperUtils');
+const { loadManifest, loadScraperCode, extractQuality, convertSrtToVtt } = require('../utils/scraperUtils');
 
 const rawBase = process.env.SUBSOURCE_ADDON_URL ||
     'https://subdl.strem.top/b3RuM0VFc3RSS3VCcTNTY05LQllyR1lhMWN6NlI0WUMvRU4sSUQsSkEvaGlJbmNsdWRlLw==/manifest.json';
@@ -249,6 +249,59 @@ exports.getStreams = async (req, res) => {
     }
 };
 
+// Helper: validate subtitle proxy URL against allowlist and basic safety checks
+function isSubtitleUrlAllowed(inputUrl) {
+  try {
+    const parsed = new URL(inputUrl);
+    // Enforce https/http only
+    const protocol = parsed.protocol;
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      return { ok: false, reason: 'Unsupported protocol' };
+    }
+
+    // Block private/internal IPs (IPv4/IPv6 basics)
+    const host = parsed.hostname;
+    const net = require('net');
+    const ipVersion = net.isIP(host);
+    if (ipVersion === 4) {
+      const parts = host.split('.').map((p) => parseInt(p, 10));
+      if (
+        parts[0] === 127 || // loopback
+        parts[0] === 10 ||
+        (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+        (parts[0] === 192 && parts[1] === 168) ||
+        parts[0] === 169 && parts[1] === 254
+      ) {
+        return { ok: false, reason: 'Private IP blocked' };
+      }
+    } else if (ipVersion === 6) {
+      // Simple checks for common internal IPv6 addresses
+      if (host === '::1' || host.startsWith('fc') || host.startsWith('fe80')) {
+        return { ok: false, reason: 'Internal IPv6 blocked' };
+      }
+    }
+
+    // Allowlist domains: exact and suffix-based (e.g., any .subdl.com or .opensubtitles.org)
+    const allowedExact = [
+      'dl.subdl.com',
+      'dl.opensubtitles.org',
+      'vtt.strem.io',
+      'sub.strem.io',
+    ];
+    const domain = host.toLowerCase();
+    const isAllowedDomain = allowedExact.includes(domain) ||
+      domain.endsWith('.subdl.com') ||
+      domain.endsWith('.opensubtitles.org');
+
+    if (!isAllowedDomain) {
+      return { ok: false, reason: 'Domain not allowed' };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: 'Invalid URL' };
+  }
+}
+
 exports.getSubtitleProxy = async (req, res) => {
     const { url } = req.query;
 
@@ -257,6 +310,11 @@ exports.getSubtitleProxy = async (req, res) => {
     }
 
     try {
+        // Validate URL before proxying
+        const verdict = isSubtitleUrlAllowed(url);
+        if (!verdict.ok) {
+            return res.status(403).json({ error: `Subtitle URL blocked: ${verdict.reason}` });
+        }
         console.log('[Server] Proxying subtitle file from:', url);
 
         const resp = await axios.get(url, {

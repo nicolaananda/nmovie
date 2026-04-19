@@ -1,5 +1,4 @@
 const axios = require('axios');
-const { VM } = require('vm2');
 const cheerio = require('cheerio');
 const CryptoJS = require('crypto-js');
 
@@ -51,131 +50,7 @@ async function loadScraperCode(filename) {
     }
 }
 
-/**
- * Execute scraper in sandboxed environment
- */
-function executeScraper(code, tmdbId, mediaType, seasonNum, episodeNum) {
-    return new Promise((resolve, reject) => {
-        try {
-            // Wrap code to expose getStreams function
-            const wrappedCode = `
-        ${code}
-        
-        // Export getStreams if using module.exports
-        if (typeof module !== 'undefined' && module.exports && module.exports.getStreams) {
-          global.getStreams = module.exports.getStreams;
-        }
-      `;
-
-            // Create VM sandbox with all necessary APIs
-            const vm = new VM({
-                timeout: 45000, // 45 seconds timeout (scrapers need time)
-                sandbox: {
-                    // Provide fetch (using axios)
-                    fetch: (url, options = {}) => {
-                        return new Promise((fetchResolve, fetchReject) => {
-                            axios({
-                                url,
-                                method: options.method || 'GET',
-                                headers: options.headers || {},
-                                data: options.body,
-                                timeout: 25000,
-                            })
-                                .then((response) => {
-                                    fetchResolve({
-                                        ok: response.status >= 200 && response.status < 300,
-                                        status: response.status,
-                                        statusText: response.statusText,
-                                        text: () => Promise.resolve(String(response.data)),
-                                        json: () => Promise.resolve(response.data),
-                                        headers: response.headers,
-                                    });
-                                })
-                                .catch((error) => {
-                                    fetchResolve({
-                                        ok: false,
-                                        status: error.response?.status || 500,
-                                        statusText: error.message,
-                                        text: () => Promise.resolve(''),
-                                        json: () => Promise.resolve(null),
-                                    });
-                                });
-                        });
-                    },
-                    // Provide cheerio for HTML parsing
-                    cheerio: cheerio,
-                    // Console for logging
-                    console: {
-                        log: (...args) => console.log('[Scraper]', ...args),
-                        warn: (...args) => console.warn('[Scraper]', ...args),
-                        error: (...args) => console.error('[Scraper]', ...args),
-                    },
-                    // Provide Promise
-                    Promise: Promise,
-                    // Provide module for compatibility
-                    module: { exports: {} },
-                    // Provide global context
-                    global: {},
-                    // Browser APIs that scrapers might need
-                    btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
-                    atob: (str) => Buffer.from(str, 'base64').toString('binary'),
-                    URLSearchParams: URLSearchParams,
-                    URL: URL,
-                    TextEncoder: TextEncoder,
-                    TextDecoder: TextDecoder,
-                    // Provide require for scrapers that need it (limited)
-                    require: (moduleName) => {
-                        // Only allow specific modules
-                        const allowedModules = {
-                            'crypto-js': CryptoJS,
-                        };
-                        if (allowedModules[moduleName]) {
-                            return allowedModules[moduleName];
-                        }
-                        throw new Error(`Module ${moduleName} is not allowed in sandbox`);
-                    },
-                    // Provide CryptoJS directly
-                    CryptoJS: CryptoJS,
-                },
-            });
-
-            // Execute scraper code
-            vm.run(wrappedCode);
-
-            // Get getStreams function from global or module.exports
-            let getStreams;
-            try {
-                getStreams = vm.run('global.getStreams || (typeof module !== "undefined" && module.exports && module.exports.getStreams ? module.exports.getStreams : null)');
-            } catch (e) {
-                // Try alternative way
-                const context = vm.run('({ getStreams: global.getStreams || (typeof module !== "undefined" && module.exports && module.exports.getStreams ? module.exports.getStreams : null) })');
-                getStreams = context.getStreams;
-            }
-
-            if (!getStreams || typeof getStreams !== 'function') {
-                throw new Error('getStreams function not found in scraper');
-            }
-
-            // Call getStreams (returns Promise)
-            const result = getStreams(tmdbId, mediaType, seasonNum, episodeNum);
-
-            // Handle Promise result
-            if (result && typeof result.then === 'function') {
-                result
-                    .then((streams) => {
-                        resolve(Array.isArray(streams) ? streams : []);
-                    })
-                    .catch((error) => {
-                        reject(error);
-                    });
-            } else {
-                resolve(Array.isArray(result) ? result : []);
-            }
-        } catch (error) {
-            reject(error);
-        }
-    });
-}
+// executeScraper removed: remote sandboxing is not used in this codebase
 
 // Helper function to extract quality from text
 function extractQuality(text) {
@@ -208,7 +83,6 @@ function convertSrtToVtt(srtText) {
 module.exports = {
     loadManifest,
     loadScraperCode,
-    executeScraper,
     extractQuality,
     convertSrtToVtt,
 };

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTrendingContent, usePopularContent, useIndonesianContent, useGenreContent } from '../hooks/useContent';
 import { useAuth } from '../contexts/AuthContext';
 import ContentCard from '../components/ContentCard';
+import ContentCardSkeleton from '../components/ContentCardSkeleton';
 import ContinueWatching from '../components/ContinueWatching';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -10,13 +11,24 @@ import ErrorMessage from '../components/ErrorMessage';
 const CategoryRow = ({ title, fetcher, mediaType }: { title: string, fetcher: any, mediaType: 'movie' | 'tv' }) => {
   const { data, isLoading, error, refetch } = fetcher(mediaType);
 
-  if (isLoading) return <div className="flex justify-center py-12"><LoadingSpinner size="large" /></div>;
+  if (isLoading) {
+    // Show skeleton cards while loading
+    return (
+      <div className="relative">
+        <div className="flex gap-5 overflow-x-auto pb-8 hide-scrollbar px-2">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <ContentCardSkeleton key={idx} />
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (error) return <ErrorMessage message={`Failed to load ${title}`} onRetry={() => refetch()} />;
 
   return (
     <div className="space-y-6 relative group/row">
-      <div className="flex items-center justify-between px-2">
-        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center gap-3">
+        <div className="flex items-center justify-between px-2">
+        <h2 className="section-title mb-2 flex items-center gap-3">
           <span className="w-1.5 h-8 bg-gradient-to-b from-primary-500 to-primary-800 rounded-full shadow-[0_0_15px_rgba(229,9,20,0.5)]"></span>
           {title}
         </h2>
@@ -94,7 +106,14 @@ export default function HomePage() {
             <div className="absolute inset-0 bg-primary-900/10 mix-blend-overlay" /> {/* Maroon Tint */}
           </div>
         ) : (
-          <div className="absolute inset-0 bg-[#0f0f0f]" />
+          // Show skeleton hero while data loads
+          loadingTrending ? (
+            <div className="absolute inset-0 bg-[#0f0f0f] flex items-center justify-center">
+              <ContentCardSkeleton />
+            </div>
+          ) : (
+            <div className="absolute inset-0 bg-[#0f0f0f]" />
+          )
         )}
 
         {/* Hero content */}
@@ -160,8 +179,8 @@ export default function HomePage() {
 
         {/* Trending Movies Row */}
         <div className="space-y-6 relative group/row">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center gap-3">
+        <div className="flex items-center justify-between px-2">
+            <h2 className="section-title mb-2 flex items-center gap-3">
               <span className="w-1.5 h-8 bg-gradient-to-b from-primary-500 to-primary-800 rounded-full shadow-[0_0_15px_rgba(229,9,20,0.5)]"></span>
               Trending Movies
             </h2>

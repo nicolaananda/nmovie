@@ -80,11 +80,14 @@ export default function LoginPage() {
                     </button>
                 </form>
 
-                <p className="mt-8 text-center text-gray-400 text-sm">
-                    New to N-Movie?{' '}
-                    <Link to="/register" className="text-white hover:underline font-medium">
-                        Sign up now
-                    </Link>
+                <p className="mt-6 text-center text-gray-400 text-sm flex flex-col items-center space-y-2">
+                    <span>
+                        New to N-Movie?{' '}
+                        <Link to="/register" className="text-white hover:underline font-medium">
+                            Sign up now
+                        </Link>
+                    </span>
+                    <Link to="/forgot-password" className="text-white/70 hover:underline text-xs">Forgot Password?</Link>
                 </p>
             </div>
         </div>
