@@ -4,6 +4,7 @@ import ReactPlayer from 'react-player';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import type { Subtitle } from '../types/metadata';
 import Skeleton from '../components/Skeleton';
+import { useVidrockProgress } from '../hooks/useVidrockProgress';
 
 export default function PlayerPage() {
   const [searchParams] = useSearchParams();
@@ -31,7 +32,24 @@ export default function PlayerPage() {
   }, [effectiveUrl]);
 
   const title = searchParams.get('title') || 'Video Player';
+  const tmdbId = searchParams.get('tmdbId') || '';
+  const mediaType = searchParams.get('mediaType') || '';
+  const poster = searchParams.get('poster') || '';
+  const season = searchParams.get('season') ? parseInt(searchParams.get('season')!) : undefined;
+  const episode = searchParams.get('episode') ? parseInt(searchParams.get('episode')!) : undefined;
   const subtitlesJson = searchParams.get('subtitles');
+
+  const isVidrockEmbed = effectiveType === 'embed' && (effectiveUrl?.includes('vidrock.net') ?? false);
+
+  useVidrockProgress({
+    tmdbId,
+    mediaType,
+    title,
+    poster: poster || undefined,
+    season,
+    episode,
+    enabled: isVidrockEmbed,
+  });
 
   // Parse subtitles from JSON and convert to tracks
   const tracks = useMemo(() => {
