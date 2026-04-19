@@ -30,10 +30,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 try {
                     const { data } = await axios.get<User>(`${API_URL}/auth/me`);
                     setUser({ ...data, token });
-                } catch (error) {
-                    console.error('Auth verification failed', error);
-                    localStorage.removeItem('token');
-                    delete axios.defaults.headers.common['Authorization'];
+                } catch (error: any) {
+                    const status = error?.response?.status;
+                    if (status === 401 || status === 403) {
+                        // Token is invalid/expired — clear it
+                        localStorage.removeItem('token');
+                        delete axios.defaults.headers.common['Authorization'];
+                    } else {
+                        // Network error, rate limit, server error — keep token, use cached user
+                        console.warn('Auth check failed (non-auth error), keeping session:', status);
+                    }
                 }
             }
             setIsLoading(false);
