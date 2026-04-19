@@ -190,12 +190,15 @@ export default function EnhancedAdminDashboard() {
     setRefreshing(false);
   };
 
+<<<<<<< HEAD
   const lastUpdatedLabel = useMemo(() => {
     if (!lastRefreshed) return 'Never';
     const diff = Math.floor((now - lastRefreshed) / 1000);
     return `${diff}s ago`;
   }, [now, lastRefreshed]);
 
+=======
+>>>>>>> 37a8831805121bf420200debba90aba53f1bf403
   const tabs: Array<{ id: TabType; label: string; icon: any }> = [
     { id: 'overview', label: 'Overview', icon: TrendingUp },
     { id: 'users', label: 'Users', icon: Users },
@@ -212,6 +215,15 @@ export default function EnhancedAdminDashboard() {
     );
   }
 
+<<<<<<< HEAD
+=======
+  const lastUpdatedLabel = useMemo(() => {
+    if (!lastRefreshed) return 'Never';
+    const diff = Math.floor((now - lastRefreshed) / 1000);
+    return `${diff}s ago`;
+  }, [now, lastRefreshed]);
+
+>>>>>>> 37a8831805121bf420200debba90aba53f1bf403
   return (
     <div className="min-h-screen bg-[#0f0f0f] pt-24 px-4 md:px-8 pb-20">
       <div className="max-w-7xl mx-auto">

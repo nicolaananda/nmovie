@@ -18,7 +18,10 @@
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "jsonwebtoken": "^9.0.3",
+<<<<<<< HEAD
     "prisma": "5.10.0",
+=======
+>>>>>>> 37a8831805121bf420200debba90aba53f1bf403
     "winston": "^3.11.0"
   },
   "devDependencies": {
