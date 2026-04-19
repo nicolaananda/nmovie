@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminService } from '../services/adminService';
 import { User } from '../types/auth';
 import {
@@ -26,6 +27,7 @@ interface Analytics {
 type TabType = 'overview' | 'users' | 'activity' | 'logs' | 'plans';
 
 export default function EnhancedAdminDashboard() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -533,7 +535,55 @@ export default function EnhancedAdminDashboard() {
                         <td className="px-6 py-4">{u.status}</td>
                         <td className="px-6 py-4">{u.subscriptionEndsAt ? new Date(u.subscriptionEndsAt).toLocaleDateString() : '-'}</td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2"></div>
+                          <div className="flex justify-end gap-2">
+                            {u.status === 'PENDING' && (
+                              <>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await adminService.updateUserStatus(u.id, 'APPROVED', 30);
+                                      fetchUsers();
+                                    } catch (e) { console.error(e); }
+                                  }}
+                                  className="px-2 py-1 text-xs rounded bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30"
+                                >
+                                  Approve 30d
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await adminService.updateUserStatus(u.id, 'REJECTED');
+                                      fetchUsers();
+                                    } catch (e) { console.error(e); }
+                                  }}
+                                  className="px-2 py-1 text-xs rounded bg-red-500/20 text-red-300 border border-red-500/30 hover:bg-red-500/30"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            {u.status === 'APPROVED' && (
+                              <button
+                                onClick={async () => {
+                                  const days = prompt('Extend subscription by how many days?', '30');
+                                  if (!days) return;
+                                  try {
+                                    await adminService.updateUserStatus(u.id, 'APPROVED', parseInt(days));
+                                    fetchUsers();
+                                  } catch (e) { console.error(e); }
+                                }}
+                                className="px-2 py-1 text-xs rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30"
+                              >
+                                Extend
+                              </button>
+                            )}
+                            <button
+                              onClick={() => navigate(`/admin/users/${u.id}`)}
+                              className="px-2 py-1 text-xs rounded bg-white/10 text-gray-300 border border-white/10 hover:bg-white/20"
+                            >
+                              Detail
+                            </button>
+                          </div>
                         </td>
                             </tr>
                         ))}

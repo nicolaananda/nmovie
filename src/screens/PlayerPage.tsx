@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactPlayer from 'react-player';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Subtitles, X } from 'lucide-react';
 import type { Subtitle } from '../types/metadata';
 import Skeleton from '../components/Skeleton';
 import { useVidrockProgress } from '../hooks/useVidrockProgress';
+import SubtitleOverlay from '../components/SubtitleOverlay';
+import { parseSrt, type SubtitleCue } from '../utils/srtParser';
 
 export default function PlayerPage() {
   const [searchParams] = useSearchParams();
@@ -12,6 +14,7 @@ export default function PlayerPage() {
   const [playing, setPlaying] = useState(true);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const playerRef = useRef<ReactPlayer>(null);
+  const embedContainerRef = useRef<HTMLDivElement>(null);
 
   // Get URL and type from parameters
   const effectiveUrl = searchParams.get('url');
@@ -50,6 +53,50 @@ export default function PlayerPage() {
     episode,
     enabled: isVidrockEmbed,
   });
+
+  const [srtCues, setSrtCues] = useState<SubtitleCue[]>([]);
+  const [srtFileName, setSrtFileName] = useState('');
+  const [vidrockTime, setVidrockTime] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isVidrockEmbed) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== 'https://vidrock.net') return;
+      if (event.data?.type === 'PLAYER_EVENT') {
+        const { currentTime } = event.data.data;
+        if (typeof currentTime === 'number') {
+          setVidrockTime(currentTime);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isVidrockEmbed]);
+
+  const handleSrtUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      if (!content) return;
+      const cues = parseSrt(content);
+      setSrtCues(cues);
+      setSrtFileName(file.name);
+    };
+    reader.readAsText(file);
+
+    e.target.value = '';
+  }, []);
+
+  const clearSrt = useCallback(() => {
+    setSrtCues([]);
+    setSrtFileName('');
+  }, []);
 
   // Parse subtitles from JSON and convert to tracks
   const tracks = useMemo(() => {
@@ -114,9 +161,13 @@ export default function PlayerPage() {
         setPlaying((p) => !p);
       } else if (key === 'f') {
         try {
-          const el = document.querySelector('video,iframe') as HTMLElement & { requestFullscreen?: () => Promise<void> };
-          if (el?.requestFullscreen) {
-            await el.requestFullscreen();
+          if (document.fullscreenElement) {
+            await document.exitFullscreen();
+          } else {
+            const el = embedContainerRef.current || document.querySelector('video') as HTMLElement;
+            if (el?.requestFullscreen) {
+              await el.requestFullscreen();
+            }
           }
         } catch { /* ignore */ }
       } else if (key === 'escape') {
@@ -180,16 +231,46 @@ export default function PlayerPage() {
           </div>
         </div>
 
-        {/* PiP button */}
-        {effectiveType !== 'embed' && (
-          <button
-            onClick={handlePiP}
-            className="pointer-events-auto p-2 rounded-full bg-black/40 backdrop-blur-md hover:bg-white/20 border border-white/10 text-white text-xs font-medium transition-colors"
-            title="Picture-in-Picture"
-          >
-            PiP
-          </button>
-        )}
+        <div className="pointer-events-auto flex items-center gap-2">
+          {isVidrockEmbed && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".srt,.vtt"
+                onChange={handleSrtUpload}
+                className="hidden"
+              />
+              {srtFileName ? (
+                <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md border border-green-500/30 rounded-full px-3 py-1.5">
+                  <Subtitles size={14} className="text-green-400" />
+                  <span className="text-[11px] text-green-300 max-w-[100px] truncate">{srtFileName}</span>
+                  <button onClick={clearSrt} className="ml-1 text-gray-400 hover:text-white">
+                    <X size={12} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md hover:bg-white/20 border border-white/10 text-white text-xs font-medium transition-colors"
+                  title="Upload SRT subtitle"
+                >
+                  <Subtitles size={14} />
+                  <span>SRT</span>
+                </button>
+              )}
+            </>
+          )}
+          {effectiveType !== 'embed' && (
+            <button
+              onClick={handlePiP}
+              className="p-2 rounded-full bg-black/40 backdrop-blur-md hover:bg-white/20 border border-white/10 text-white text-xs font-medium transition-colors"
+              title="Picture-in-Picture"
+            >
+              PiP
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Player Area */}
@@ -197,7 +278,19 @@ export default function PlayerPage() {
         {validatedUrl ? (
           <div className="w-full h-full">
             {effectiveType === 'embed' ? (
-              <>
+              <div
+                ref={embedContainerRef}
+                className="w-full h-full relative overflow-hidden bg-black"
+                onDoubleClick={async () => {
+                  try {
+                    if (document.fullscreenElement) {
+                      await document.exitFullscreen();
+                    } else {
+                      await embedContainerRef.current?.requestFullscreen();
+                    }
+                  } catch { /* ignore */ }
+                }}
+              >
                 {progressSeeded ? (
                   <iframe
                     src={validatedUrl}
@@ -213,7 +306,10 @@ export default function PlayerPage() {
                     <Skeleton variant="card" className="w-1/2 h-1/2" />
                   </div>
                 )}
-              </>
+                {srtCues.length > 0 && (
+                  <SubtitleOverlay cues={srtCues} currentTime={vidrockTime} />
+                )}
+              </div>
             ) : (
               <ReactPlayer
                 ref={playerRef}
