@@ -52,18 +52,17 @@ exports.register = async (req, res) => {
         //  - First user becomes ADMIN, no trial expiry.
         //  - Otherwise, give a `TRIAL_DAYS` (default 30) approved trial.
         //    Donation-supported model: we approve up front and let admins
-        //    manually revoke if needed, instead of holding everyone in
-        //    PENDING.
+        //    manually revoke if needed.
+        //
+        // We deliberately do NOT auto-attach a SubscriptionPlan record
+        // here. Plans are admin-managed paid/donor tiers; setting one on
+        // a free trial would mislead reporting. Admins attach a plan
+        // when a donation is received via the supporter flow.
         const trialDays = parseInt(process.env.TRIAL_DAYS || '30');
         const autoApprove = (process.env.AUTO_APPROVE_TRIAL || 'true') !== 'false';
 
         const trialEnd = new Date();
         trialEnd.setDate(trialEnd.getDate() + trialDays);
-
-        const trialPlan = isFirstUser ? null : await prisma.subscriptionPlan.findFirst({
-            where: { durationDays: trialDays, isActive: true },
-            orderBy: { id: 'asc' },
-        });
 
         const user = await prisma.user.create({
             data: {
@@ -73,7 +72,6 @@ exports.register = async (req, res) => {
                 role,
                 status: isFirstUser || autoApprove ? 'APPROVED' : 'PENDING',
                 subscriptionEndsAt: isFirstUser ? null : trialEnd,
-                ...(trialPlan ? { subscriptionPlanId: trialPlan.id } : {}),
             },
         });
 
@@ -194,11 +192,17 @@ exports.updateMe = async (req, res) => {
     }
 };
 
-// Forgot Password - generate reset token and email it to the user.
+// Forgot Password — manual admin handoff (no SMTP).
 //
-// We always return the same response regardless of whether the email
-// exists in the database, to avoid leaking which addresses are registered.
-// SMTP errors are logged but not surfaced to the client for the same reason.
+// We don't run an email server. Instead, when a user submits their email
+// here we generate a reset token and notify all admins so they can:
+//   1. See the request in their dashboard.
+//   2. Verify the user's identity through whatever channel they use
+//      (chat, the registered email, etc.).
+//   3. Manually share the reset link with the user.
+//
+// Response is uniform regardless of whether the email exists, to avoid
+// leaking which addresses are registered.
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
@@ -211,25 +215,31 @@ exports.forgotPassword = async (req, res) => {
         data: { resetToken: token, resetTokenExpiry: expiry },
       });
 
-      try {
-        const sent = await sendPasswordResetEmail({
-          to: user.email,
-          name: user.name,
-          token,
-        });
-        if (!sent) {
-          logger.warn('Password reset requested but email service is not configured', {
-            userId: user.id,
-          });
-        }
-      } catch (mailErr) {
-        logger.error('Failed to send password reset email', {
-          userId: user.id,
-          error: mailErr.message,
-        });
-      }
+      // Notify every admin so the request shows up in their bell + dashboard.
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
+      });
+      await Promise.all(
+        admins.map((a) =>
+          createNotification(
+            a.id,
+            'SYSTEM',
+            'Password reset requested',
+            `User ${user.email} requested a password reset. Open admin → users → ${user.id} to share the reset link.`,
+          ),
+        ),
+      );
+
+      logger.info('Password reset requested (manual handoff)', {
+        userId: user.id,
+        email: user.email,
+      });
     }
-    res.json({ message: 'If this email is registered, a password reset has been initiated.' });
+    res.json({
+      message:
+        'Password reset request received. Please contact the admin if you do not get a response soon.',
+    });
   } catch (error) {
     logger.error('Forgot password error', { error: error.message });
     res.status(500).json({ error: 'Server error' });

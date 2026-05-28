@@ -13,6 +13,7 @@ import { customSubtitleService, type ApprovedSubtitle } from '../services/custom
 import { useToast } from '../contexts/ToastContext';
 import { useT } from '../i18n/I18nContext';
 import { readPlayerPayload } from '../utils/playerPayload';
+import { isAllowedPlayerUrl } from '../constants';
 
 export default function PlayerPage() {
   const [searchParams] = useSearchParams();
@@ -39,19 +40,15 @@ export default function PlayerPage() {
   const effectiveUrl = payload?.url ?? searchParams.get('url');
   const effectiveType = payload?.type ?? searchParams.get('type');
 
-  // Validate URL safely
+  // Validate the URL against the allowlist. For `type=embed` this means
+  // the host must be in EMBED_HOST_ALLOWLIST (currently just vidrock.net).
+  // Anything else — non-https schemes, foreign embed host, garbage
+  // payload — is rejected so we don't render attacker-controlled content
+  // in our app shell.
   const validatedUrl = useMemo(() => {
     if (!effectiveUrl) return null;
-    try {
-      const u = new URL(effectiveUrl);
-      if (u.protocol === 'http:' || u.protocol === 'https:') {
-        return effectiveUrl;
-      }
-    } catch {
-      return null;
-    }
-    return null;
-  }, [effectiveUrl]);
+    return isAllowedPlayerUrl(effectiveUrl, effectiveType) ? effectiveUrl : null;
+  }, [effectiveUrl, effectiveType]);
 
   const title = payload?.title ?? searchParams.get('title') ?? 'Video Player';
   const tmdbId = payload?.tmdbId ?? searchParams.get('tmdbId') ?? '';
@@ -717,17 +714,40 @@ export default function PlayerPage() {
             )}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center text-gray-500 space-y-4 p-8">
+          <div className="flex flex-col items-center justify-center text-gray-500 space-y-4 p-8 max-w-lg mx-auto text-center">
             <div className="p-4 rounded-full bg-white/5">
               <AlertCircle size={48} className="opacity-50" />
             </div>
-            <p className="text-xl font-medium">No video source provided</p>
-            <button
-              onClick={() => navigate(-1)}
-              className="px-6 py-2 rounded-lg bg-primary-600 text-white text-sm font-bold hover:bg-primary-700 transition"
-            >
-              Go Back
-            </button>
+            <p className="text-xl font-medium text-white">
+              {effectiveUrl ? 'This stream link is no longer valid' : 'No video source provided'}
+            </p>
+            {effectiveUrl && (
+              <p className="text-sm text-gray-500 leading-relaxed">
+                The cached link may have expired or the host is not on the
+                allowed list. Pick a fresh source from the metadata page.
+              </p>
+            )}
+            <div className="flex gap-2">
+              {tmdbId && (
+                <button
+                  onClick={() =>
+                    navigate(
+                      `/metadata/${mediaType === 'series' ? 'series' : 'movie'}/${tmdbId}` +
+                        (season && episode ? `?season=${season}&episode=${episode}` : ''),
+                    )
+                  }
+                  className="px-6 py-2 rounded-lg bg-primary-600 text-white text-sm font-bold hover:bg-primary-700"
+                >
+                  Pick a source
+                </button>
+              )}
+              <button
+                onClick={() => navigate(-1)}
+                className="px-6 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm font-bold"
+              >
+                Go back
+              </button>
+            </div>
           </div>
         )}
       </div>

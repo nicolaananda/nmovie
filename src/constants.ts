@@ -13,8 +13,41 @@ export const TMDB_DEFAULT_BANNER_SIZE = 'original';
 /** Origin of the vidrock embed player. Used for postMessage filtering. */
 export const VIDROCK_ORIGIN = 'https://vidrock.net';
 
-/** Hosts allowed to be loaded inside the iframe player. */
+/**
+ * Hosts allowed to be loaded inside the embed iframe player.
+ *
+ * The PlayerPage rejects any `type=embed` URL whose host isn't on this
+ * list, including subdomain matches. Direct stream URLs (mp4/m3u8) are
+ * not bound to this list since they're served over CDNs we don't
+ * control, but they're still required to be https.
+ */
 export const EMBED_HOST_ALLOWLIST = ['vidrock.net'] as const;
+
+/**
+ * Returns true if the URL is acceptable to load in our player.
+ *
+ *  - Both http and https URLs are valid syntactically, but we require
+ *    https in practice to avoid mixed-content issues.
+ *  - For `type=embed`, the host must equal or be a subdomain of one of
+ *    the entries in EMBED_HOST_ALLOWLIST.
+ */
+export function isAllowedPlayerUrl(rawUrl: string, type?: string | null): boolean {
+  if (!rawUrl) return false;
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+  if (type === 'embed') {
+    const host = url.hostname.toLowerCase();
+    return EMBED_HOST_ALLOWLIST.some(
+      (allowed) => host === allowed || host.endsWith(`.${allowed}`),
+    );
+  }
+  return true;
+}
 
 /** Default language code used when prompting users for subtitle uploads. */
 export const DEFAULT_SUBTITLE_LANG = 'id';

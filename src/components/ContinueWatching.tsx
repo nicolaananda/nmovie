@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { watchHistoryService, WatchProgress } from '../services/watchHistoryService';
 import { Play, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -9,26 +10,25 @@ import { recallLastStream } from '../utils/lastStreamCache';
 import { stashPlayerPayload } from '../utils/playerPayload';
 
 export default function ContinueWatching() {
-    const [items, setItems] = useState<WatchProgress[]>([]);
-    const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
     const toast = useToast();
     const t = useT();
+    const queryClient = useQueryClient();
 
-    useEffect(() => {
-        fetchContinueWatching();
-    }, []);
+    // Fetched via react-query so other parts of the app (player progress
+    // hook, library page, etc.) can `invalidateQueries(['continue-watching'])`
+    // and trigger a refetch automatically.
+    const { data, isLoading } = useQuery<WatchProgress[]>({
+        queryKey: ['continue-watching'],
+        queryFn: () => watchHistoryService.getContinueWatching(),
+        staleTime: 1000 * 30,
+    });
+    const items = data ?? [];
 
-    const fetchContinueWatching = async () => {
-        try {
-            const data = await watchHistoryService.getContinueWatching();
-            setItems(data);
-        } catch (error) {
-            console.error('Failed to fetch continue watching', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Local override for optimistic remove so the user doesn't have to
+    // wait for the network round-trip to see the row disappear.
+    const [removed, setRemoved] = useState<Set<number>>(new Set());
+    const visibleItems = items.filter((it) => !(typeof it.id === 'number' && removed.has(it.id)));
 
     const handlePlay = (item: WatchProgress) => {
         // If we have a fresh cached stream payload for this exact item,
@@ -54,7 +54,7 @@ export default function ContinueWatching() {
         navigate(qs ? `${base}?${qs}` : base);
     };
 
-    if (loading || items.length === 0) {
+    if (isLoading || visibleItems.length === 0) {
         return null;
     }
 
@@ -66,7 +66,7 @@ export default function ContinueWatching() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {items.map((item) => (
+                {visibleItems.map((item) => (
                     <div
                         key={item.id}
                         className="group relative"
@@ -88,7 +88,16 @@ export default function ContinueWatching() {
                                 try {
                                     if (typeof item.id === 'number') {
                                         await watchHistoryService.removeWatchHistory(item.id);
-                                        setItems((curr) => curr.filter((x) => x.id !== item.id));
+                                        // Optimistically hide locally, then
+                                        // ask react-query to refetch the
+                                        // fresh list.
+                                        setRemoved((s) => {
+                                            const next = new Set(s);
+                                            if (typeof item.id === 'number') next.add(item.id);
+                                            return next;
+                                        });
+                                        queryClient.invalidateQueries({ queryKey: ['continue-watching'] });
+                                        queryClient.invalidateQueries({ queryKey: ['watch-history'] });
                                     }
                                 } catch (err) {
                                     console.error('Failed to remove', err);

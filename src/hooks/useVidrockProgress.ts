@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { watchHistoryService } from '../services/watchHistoryService';
 import { extractPosterPath } from '../utils/posterUrl';
 import {
@@ -52,6 +53,7 @@ const LOCAL_STORAGE_THROTTLE_MS = VIDROCK_LOCAL_STORAGE_THROTTLE_MS;
 
 export function useVidrockProgress(options: UseVidrockProgressOptions) {
   const { tmdbId, mediaType, title, poster, season, episode, enabled } = options;
+  const queryClient = useQueryClient();
   const lastSaveRef = useRef<number>(0);
   const lastLocalWriteRef = useRef<number>(0);
   const progressRef = useRef<{ watched: number; duration: number }>({ watched: 0, duration: 0 });
@@ -151,6 +153,15 @@ export function useVidrockProgress(options: UseVidrockProgressOptions) {
         progress: watched,
         duration,
         completed,
+      }).then(() => {
+        // Invalidate the queries that surface progress to the UI so the
+        // episode list checkmarks, the resume banner, and the home
+        // continue-watching row reflect the latest state without a
+        // hard refresh.
+        queryClient.invalidateQueries({ queryKey: ['series-progress', tmdbId] });
+        queryClient.invalidateQueries({ queryKey: ['item-progress', tmdbId] });
+        queryClient.invalidateQueries({ queryKey: ['watch-history'] });
+        queryClient.invalidateQueries({ queryKey: ['continue-watching'] });
       }).catch((err) => {
         console.error('[useVidrockProgress] Failed to save progress:', err);
       });

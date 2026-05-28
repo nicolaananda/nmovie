@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Star } from 'lucide-react';
+import { Plus, Trash2, Star, Sparkles } from 'lucide-react';
 import { featuredService, type FeaturedContent } from '../../services/featuredService';
+import { tmdbService } from '../../services/tmdbService';
 import { useToast } from '../../contexts/ToastContext';
 
 /**
@@ -18,6 +19,41 @@ export default function FeaturedManager() {
     isActive: true,
   });
   const [submitting, setSubmitting] = useState(false);
+  const [fetching, setFetching] = useState(false);
+
+  const fetchFromTmdb = async () => {
+    if (!draft.tmdbId) {
+      toast.warning('Enter a TMDB ID first');
+      return;
+    }
+    const id = parseInt(draft.tmdbId);
+    if (!id) {
+      toast.warning('Invalid TMDB ID');
+      return;
+    }
+    const mediaType = draft.mediaType === 'tv' ? 'tv' : 'movie';
+    setFetching(true);
+    try {
+      const content = await tmdbService.getDetails(id, mediaType);
+      if (!content) {
+        toast.error('No content found for that TMDB ID');
+        return;
+      }
+      setDraft((d) => ({
+        ...d,
+        title: d.title || content.name,
+        description: d.description || content.description,
+        banner: d.banner || content.banner,
+        poster: d.poster || content.poster,
+      }));
+      toast.success('Filled from TMDB');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to fetch from TMDB');
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -104,13 +140,24 @@ export default function FeaturedManager() {
           <option value="movie">Movie</option>
           <option value="tv">TV</option>
         </select>
-        <input
-          type="text"
-          placeholder="TMDB ID"
-          value={draft.tmdbId ?? ''}
-          onChange={(e) => setDraft((d) => ({ ...d, tmdbId: e.target.value }))}
-          className="bg-black/40 border border-white/10 rounded px-2 py-1.5 text-white md:col-span-1"
-        />
+        <div className="flex md:col-span-1 gap-1">
+          <input
+            type="text"
+            placeholder="TMDB ID"
+            value={draft.tmdbId ?? ''}
+            onChange={(e) => setDraft((d) => ({ ...d, tmdbId: e.target.value }))}
+            className="flex-1 bg-black/40 border border-white/10 rounded px-2 py-1.5 text-white"
+          />
+          <button
+            type="button"
+            onClick={fetchFromTmdb}
+            disabled={fetching || !draft.tmdbId}
+            title="Fetch title/description/banner from TMDB"
+            className="px-2 rounded bg-white/10 hover:bg-white/15 text-yellow-300 disabled:opacity-50 border border-white/10"
+          >
+            <Sparkles size={12} />
+          </button>
+        </div>
         <input
           type="text"
           placeholder="Title"

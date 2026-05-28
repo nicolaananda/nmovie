@@ -14,6 +14,7 @@ const {
     updateSubscriptionPlan,
     deleteSubscriptionPlan,
     setUserSupporter,
+    generatePasswordResetLink,
 } = require('../controllers/adminController');
 const {
     adminListFeatured,
@@ -32,6 +33,7 @@ router.get('/users/:id', getUserDetails);
 router.put('/users/:id/role', updateUserRole);
 router.put('/users/:id/status', updateUserStatus);
 router.put('/users/:id/supporter', setUserSupporter);
+router.post('/users/:id/password-reset-link', generatePasswordResetLink);
 router.post('/users/bulk-approve', bulkApproveUsers);
 router.delete('/users/:id', deleteUser);
 router.get('/activity-logs', getActivityLogs);

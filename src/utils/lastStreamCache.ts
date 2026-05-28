@@ -13,7 +13,11 @@ import type { PlayerPayload } from './playerPayload';
 
 const KEY = 'last-stream-cache';
 const MAX_ENTRIES = 50;
-const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+// Stream URLs from third-party providers can rotate or expire over the
+// course of a day, especially direct links with signed query strings.
+// We keep the cache short enough that a stale entry is unlikely, but
+// long enough to cover a typical viewing session (binge weekend).
+const TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 interface Entry {
   payload: PlayerPayload;

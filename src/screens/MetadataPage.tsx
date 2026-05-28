@@ -39,10 +39,12 @@ export default function MetadataPage() {
   // For series: fetch seasons and episodes. Default to S1E1 unless the
   // caller passed `?season=&episode=` (e.g. continue-watching deep links).
   const isSeries = type === 'series';
+  const hasExplicitSelection = searchParams.has('season') || searchParams.has('episode');
   const initialSeason = parseInt(searchParams.get('season') || '1') || 1;
   const initialEpisode = parseInt(searchParams.get('episode') || '1') || 1;
   const [selectedSeason, setSelectedSeason] = useState<number>(initialSeason);
   const [selectedEpisode, setSelectedEpisode] = useState<number>(initialEpisode);
+  const [autoPickedFromHistory, setAutoPickedFromHistory] = useState(false);
   const [activeTab, setActiveTab] = useState<'episodes' | 'sources'>(type === 'series' ? 'episodes' : 'sources');
 
   const { data: seasons } = useTVSeasons(isSeries ? tmdbId : 0);
@@ -71,6 +73,52 @@ export default function MetadataPage() {
   // Per-episode progress map for the watched/in-progress markers in
   // the episode list. Empty for movies.
   const seriesProgress = useSeriesProgress(String(tmdbId), isSeries && Boolean(user));
+
+  // Auto-select the most recently watched episode when the user lands
+  // on a series detail page without explicit season/episode in the URL.
+  // Picks the in-progress episode if any; otherwise the next episode
+  // after the latest completed one. Only runs once per mount.
+  useEffect(() => {
+    if (!isSeries || hasExplicitSelection || autoPickedFromHistory) return;
+    const map = seriesProgress.data;
+    if (!map || Object.keys(map).length === 0) return;
+
+    type Entry = {
+      season: number;
+      episode: number;
+      progress: number;
+      completed: boolean;
+      lastWatchedAt: number;
+    };
+    const entries: Entry[] = Object.entries(map).map(([key, value]) => {
+      const m = key.match(/^s(\d+)e(\d+)$/);
+      const season = m ? parseInt(m[1]) : 0;
+      const episode = m ? parseInt(m[2]) : 0;
+      return {
+        season,
+        episode,
+        progress: value.progress ?? 0,
+        completed: value.completed === true,
+        lastWatchedAt: value.lastWatchedAt ? new Date(value.lastWatchedAt).getTime() : 0,
+      };
+    });
+    if (entries.length === 0) return;
+
+    // Pick the most recently touched entry. If completed, advance to
+    // the next episode within the same season (we don't auto-jump
+    // seasons to keep the behavior predictable).
+    entries.sort((a, b) => b.lastWatchedAt - a.lastWatchedAt);
+    const latest = entries[0];
+    const target = latest.completed
+      ? { season: latest.season, episode: latest.episode + 1 }
+      : { season: latest.season, episode: latest.episode };
+
+    if (target.season > 0 && target.episode > 0) {
+      setSelectedSeason(target.season);
+      setSelectedEpisode(target.episode);
+      setAutoPickedFromHistory(true);
+    }
+  }, [isSeries, hasExplicitSelection, autoPickedFromHistory, seriesProgress.data]);
 
   // Progress for the *currently selected* item (movie or specific S/E),
   // used to drive the Resume banner.

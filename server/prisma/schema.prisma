@@ -59,7 +59,7 @@ model User {
   resetTokenExpiry    DateTime?
   updatedAt           DateTime         @updatedAt
 
-  // Donation supporter flag — set manually by admin when a user donates.
+  // Donation supporter flag - set manually by admin when a user donates.
   // Drives the "Supporter" badge in the UI.
   isSupporter         Boolean          @default(false)
   supporterSince      DateTime?

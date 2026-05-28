@@ -50,6 +50,26 @@ export const adminService = {
         return data;
     },
 
+    /**
+     * Generate a fresh password-reset link for a user. Used by admins
+     * after the user contacts them via chat / external email asking for
+     * a reset. Returns the full URL that the admin then shares manually.
+     */
+    async generatePasswordResetLink(id: number) {
+        const { data } = await apiClient.post<{
+            url: string;
+            token: string;
+            expiresAt: string;
+            user: { id: number; email: string; name: string | null };
+        }>(`/admin/users/${id}/password-reset-link`);
+        return data;
+    },
+
+    async setUserSupporter(id: number, isSupporter: boolean) {
+        const { data } = await apiClient.put(`/admin/users/${id}/supporter`, { isSupporter });
+        return data;
+    },
+
     // Update user role
     async updateUserRole(userId: number, role: string) {
         const { data } = await apiClient.put(`/admin/users/${userId}/role`, { role });

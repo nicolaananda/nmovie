@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminService } from '../services/adminService';
 import { featuredService } from '../services/featuredService';
-import { Check, Trash2, Loader2, Shield, Heart } from 'lucide-react';
+import { Check, Trash2, Loader2, Shield, Heart, Key, Copy } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
 export default function AdminUserDetail() {
@@ -13,6 +13,8 @@ export default function AdminUserDetail() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [resetLink, setResetLink] = useState<{ url: string; expiresAt: string } | null>(null);
+  const [generatingLink, setGeneratingLink] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -71,6 +73,31 @@ export default function AdminUserDetail() {
     } catch (e) {
       console.error('Failed to delete user', e);
       toast.error('Failed to delete user');
+    }
+  };
+
+  const handleGenerateResetLink = async () => {
+    if (!userId) return;
+    setGeneratingLink(true);
+    try {
+      const result = await adminService.generatePasswordResetLink(userId);
+      setResetLink({ url: result.url, expiresAt: result.expiresAt });
+      toast.success('Reset link generated');
+    } catch (e) {
+      console.error('Failed to generate reset link', e);
+      toast.error('Failed to generate reset link');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const copyResetLink = async () => {
+    if (!resetLink) return;
+    try {
+      await navigator.clipboard.writeText(resetLink.url);
+      toast.success('Reset link copied to clipboard');
+    } catch {
+      toast.error('Could not access clipboard. Long-press to copy manually.');
     }
   };
 
@@ -161,6 +188,54 @@ export default function AdminUserDetail() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Password reset link generator (manual handoff) */}
+        <div className="p-6 bg-white/5 rounded-xl shadow-md">
+          <div className="flex items-center gap-3 mb-3">
+            <Key size={18} className="text-yellow-400" />
+            <h2 className="text-lg font-bold">Password reset</h2>
+          </div>
+          <p className="text-sm text-gray-400 mb-4 leading-relaxed">
+            Generate a one-time link valid for 1 hour. Copy and share it with
+            the user via your own channel (chat, the registered email, etc.).
+            Generating a new link invalidates any previous one.
+          </p>
+          {resetLink ? (
+            <div className="space-y-3">
+              <div className="bg-black/40 border border-white/10 rounded-lg p-3 font-mono text-xs text-gray-300 break-all">
+                {resetLink.url}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={copyResetLink}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold"
+                >
+                  <Copy size={14} />
+                  Copy link
+                </button>
+                <button
+                  onClick={handleGenerateResetLink}
+                  disabled={generatingLink}
+                  className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-xs disabled:opacity-50"
+                >
+                  Regenerate
+                </button>
+                <span className="text-[10px] text-gray-500 ml-auto">
+                  Expires {new Date(resetLink.expiresAt).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleGenerateResetLink}
+              disabled={generatingLink}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/30 text-sm font-medium disabled:opacity-50"
+            >
+              <Key size={14} />
+              {generatingLink ? 'Generating...' : 'Generate reset link'}
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

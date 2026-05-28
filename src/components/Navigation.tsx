@@ -120,31 +120,43 @@ export default function Navigation() {
           </div>
         </div>
       </nav>
-      {/* Mobile bottom tab bar */}
+      {/* Mobile bottom tab bar. We tailor the tabs to who's logged in:
+          guests get Home/Search/Library/Donate/Login (so the donation
+          page is reachable without a desktop), while signed-in users get
+          History and Profile in place of Donate/Login. */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f]/90 backdrop-blur-xl border-t border-white/10" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex justify-between text-sm text-gray-400">
-          {[
-            { to: '/', Icon: Home, label: t('nav.home') },
-            { to: '/search', Icon: Search, label: t('nav.search') },
-            { to: '/library', Icon: Library, label: t('nav.library') },
-            { to: '/profile', Icon: User, label: t('nav.profile') },
-          ].map(({ to, Icon, label }, idx) => {
-            const isActive = currentPath === to;
-            return (
-              <Link
-                key={to + idx}
-                to={to}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'flex-1 flex flex-col items-center justify-center py-2',
-                  isActive ? 'text-primary-500' : 'text-gray-400 hover:text-white'
-                )}
-              >
-                <Icon size={20} />
-                <span className="text-xs mt-1">{label}</span>
-              </Link>
-            );
-          })}
+          {(() => {
+            const tabs: { to: string; Icon: typeof Home; label: string }[] = [
+              { to: '/', Icon: Home, label: t('nav.home') },
+              { to: '/search', Icon: Search, label: t('nav.search') },
+              { to: '/library', Icon: Library, label: t('nav.library') },
+            ];
+            if (user) {
+              tabs.push({ to: '/history', Icon: History, label: t('nav.history') });
+              tabs.push({ to: '/profile', Icon: User, label: t('nav.profile') });
+            } else {
+              tabs.push({ to: '/donate', Icon: Heart, label: t('nav.donate') });
+              tabs.push({ to: '/login', Icon: LogIn, label: t('nav.login') });
+            }
+            return tabs.map(({ to, Icon, label }, idx) => {
+              const isActive = currentPath === to;
+              return (
+                <Link
+                  key={to + idx}
+                  to={to}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={cn(
+                    'flex-1 flex flex-col items-center justify-center py-2',
+                    isActive ? 'text-primary-500' : 'text-gray-400 hover:text-white'
+                  )}
+                >
+                  <Icon size={20} />
+                  <span className="text-xs mt-1">{label}</span>
+                </Link>
+              );
+            });
+          })()}
         </div>
       </div>
     </>

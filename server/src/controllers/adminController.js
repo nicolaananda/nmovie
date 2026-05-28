@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const prisma = require('../prisma');
 const logger = require('../utils/logger');
 const { createNotification } = require('./notificationController');
@@ -516,9 +517,6 @@ exports.deleteSubscriptionPlan = async (req, res) => {
   }
 };
 
-// Toggle the supporter flag manually. Used when an admin verifies a
-// donation came in for a given user. Setting `isSupporter=true` also
-// timestamps `supporterSince` (preserving an existing one if present).
 exports.setUserSupporter = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -557,5 +555,50 @@ exports.setUserSupporter = async (req, res) => {
   } catch (error) {
     logger.error('Set user supporter error', { error: error.message, adminId: req.user.id });
     res.status(500).json({ error: 'Failed to update supporter status' });
+  }
+};
+
+// Generate a fresh password-reset link for a user. Admin uses this when
+// the user contacted them via chat / external email asking to reset.
+//
+// Returns the full URL with the reset token; admin copies it and shares
+// manually. Token is valid for 1 hour, same TTL as the public flow.
+exports.generatePasswordResetLink = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await prisma.user.update({
+      where: { id },
+      data: { resetToken: token, resetTokenExpiry: expiry },
+    });
+
+    const appUrl = (process.env.APP_URL || '').replace(/\/$/, '');
+    const url = `${appUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+    await prisma.adminAction.create({
+      data: {
+        adminId: req.user.id,
+        action: 'PASSWORD_RESET_LINK',
+        targetId: id,
+        targetType: 'user',
+        description: `Generated password reset link for ${user.email}`,
+      },
+    });
+
+    res.json({
+      url,
+      token,
+      expiresAt: expiry.toISOString(),
+      user: { id: user.id, email: user.email, name: user.name },
+    });
+  } catch (error) {
+    logger.error('Generate password reset link error', { error: error.message, adminId: req.user.id });
+    res.status(500).json({ error: 'Failed to generate reset link' });
   }
 };
