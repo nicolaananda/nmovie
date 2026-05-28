@@ -142,7 +142,9 @@ img {
  * We pin the wrapper and its descendants to the exact viewport dimensions
  * and hide overflow so no scroll bar appears in fullscreen.
  *
- * Also hides the page scroll bars under html/body for the duration.
+ * The `html:has()` rule also hides the page scroll bars under html/body
+ * while the wrapper is fullscreen — without it Chromium briefly shows a
+ * vertical scrollbar overlay because the body is still tall.
  */
 :fullscreen,
 :-webkit-full-screen {
@@ -162,6 +164,8 @@ img {
 }
 
 html:has(:fullscreen),
-html:has(:-webkit-full-screen) {
+html:has(:-webkit-full-screen),
+body:has(:fullscreen),
+body:has(:-webkit-full-screen) {
   overflow: hidden !important;
 }

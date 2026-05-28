@@ -314,9 +314,22 @@ export default function PlayerPage() {
     return () => { document.title = prev; };
   }, [title]);
 
-  // Intercept fullscreen: if iframe goes fullscreen, switch to container fullscreen
+  // Intercept fullscreen: if iframe goes fullscreen, switch to container
+  // fullscreen. While anything is fullscreen, we also lock scrolling on
+  // both <html> and <body> so Safari doesn't render its overlay scroll
+  // bars next to the player. (Chromium hides them automatically; Safari
+  // doesn't unless body is explicitly locked.)
   useEffect(() => {
     if (!isVidrockEmbed) return;
+
+    const lockScroll = () => {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    };
+    const unlockScroll = () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
 
     const handleFullscreenChange = () => {
       const fsEl = document.fullscreenElement;
@@ -328,17 +341,21 @@ export default function PlayerPage() {
         });
       }
       if (document.fullscreenElement) {
-        document.documentElement.style.overflow = 'hidden';
+        lockScroll();
       } else {
-        document.documentElement.style.overflow = '';
+        unlockScroll();
         setCssFull(false);
       }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    // Safari fires the prefixed event in addition to (or instead of) the
+    // standard one in some versions. Bind both to be safe.
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.documentElement.style.overflow = '';
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      unlockScroll();
     };
   }, [isVidrockEmbed]);
 

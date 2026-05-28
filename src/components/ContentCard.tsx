@@ -58,13 +58,18 @@ export default function ContentCard({ content }: ContentCardProps) {
 
           {/* Metadata Row */}
           <div className="flex items-center gap-3 text-xs font-medium text-gray-200">
-            {(content.year || content.released) ? (
-              <span className="text-white/90">
-                {content.year || content.released?.substring(0, 4)}
-              </span>
-            ) : null}
+            {(() => {
+              // Skip the meta pill entirely when we don't have a real
+              // year — TMDB sometimes returns 0 / empty / null and the
+              // old code rendered "0," next to the title.
+              const year = content.year ?? (content.released
+                ? parseInt(content.released.substring(0, 4))
+                : null);
+              if (!year || year < 1900) return null;
+              return <span className="text-white/90">{year}</span>;
+            })()}
 
-            {content.imdbRating && (
+            {content.imdbRating && parseFloat(content.imdbRating) > 0 && (
               <div className="flex items-center gap-1 bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded text-[#46d369]">
                 <Star size={10} className="fill-current" />
                 <span>{content.imdbRating}</span>
