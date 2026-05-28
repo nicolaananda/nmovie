@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { adminService } from '../services/adminService';
-import { Check, Trash2, Loader2, Shield } from 'lucide-react';
+import { featuredService } from '../services/featuredService';
+import { Check, Trash2, Loader2, Shield, Heart } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
 
 export default function AdminUserDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const userId = id ? parseInt(id) : NaN;
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -54,12 +57,20 @@ export default function AdminUserDetail() {
 
   const deleteUser = async () => {
     if (!userId) return;
-    if (!confirm('Delete this user?')) return;
+    const ok = await toast.confirm({
+      title: 'Delete user?',
+      message: 'This permanently removes the user and all their data. This cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await adminService.deleteUser(userId);
+      toast.success('User deleted');
       navigate('/admin');
     } catch (e) {
       console.error('Failed to delete user', e);
+      toast.error('Failed to delete user');
     }
   };
 
@@ -107,6 +118,47 @@ export default function AdminUserDetail() {
             <div className="bg-white/5 rounded-lg p-4">
               <div className="text-sm text-gray-400">Status</div>
               <div className="text-lg font-semibold">{user.status}</div>
+            </div>
+            <div className="bg-white/5 rounded-lg p-4 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-400">Supporter</div>
+                  <div className="text-base font-semibold flex items-center gap-2">
+                    {user.isSupporter ? (
+                      <>
+                        <Heart size={14} className="fill-current text-primary-400" />
+                        <span className="text-primary-300">Yes</span>
+                        {user.supporterSince && (
+                          <span className="text-xs text-gray-500 ml-2">
+                            since {new Date(user.supporterSince).toLocaleDateString()}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-gray-400">No</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      await featuredService.adminSetSupporter(userId, !user.isSupporter);
+                      toast.success(user.isSupporter ? 'Supporter revoked' : 'Supporter granted');
+                      fetchUserDetails();
+                    } catch (e) {
+                      console.error(e);
+                      toast.error('Failed to update');
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                    user.isSupporter
+                      ? 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'
+                      : 'bg-primary-600 hover:bg-primary-700 text-white'
+                  }`}
+                >
+                  {user.isSupporter ? 'Revoke' : 'Grant supporter'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

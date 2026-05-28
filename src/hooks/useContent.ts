@@ -69,3 +69,11 @@ export function useTVEpisodes(tvId: number, seasonNumber: number) {
   });
 }
 
+export function useSimilarContent(mediaType: 'movie' | 'tv', id: number) {
+  return useQuery({
+    queryKey: ['similar', mediaType, id],
+    queryFn: () => tmdbService.getSimilar(mediaType, id),
+    enabled: !!id,
+  });
+}
+

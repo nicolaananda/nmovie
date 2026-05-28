@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, Library, Settings, LogIn, LogOut, Shield, User, History, Film } from 'lucide-react';
+import { Home, Search, Library, Settings, LogIn, LogOut, Shield, User, History, Film, Heart } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { useAuth } from '../contexts/AuthContext';
+import { useT } from '../i18n/I18nContext';
 import NotificationBell from './NotificationBell';
 
 export default function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
+  const t = useT();
   const currentPath = location.pathname;
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen] = useState(false);
@@ -22,22 +24,25 @@ export default function Navigation() {
   }, []);
 
   const navItems = [
-    { to: '/', icon: Home, label: 'Home' },
-    { to: '/search', icon: Search, label: 'Search' },
-    { to: '/library', icon: Library, label: 'Library' },
+    { to: '/', icon: Home, label: t('nav.home') },
+    { to: '/search', icon: Search, label: t('nav.search') },
+    { to: '/library', icon: Library, label: t('nav.library') },
   ];
 
   if (user) {
-    navItems.push({ to: '/history', icon: History, label: 'History' });
-    navItems.push({ to: '/profile', icon: User, label: 'Profile' });
-    navItems.push({ to: '/settings', icon: Settings, label: 'Settings' });
+    navItems.push({ to: '/history', icon: History, label: t('nav.history') });
+    navItems.push({ to: '/profile', icon: User, label: t('nav.profile') });
+    navItems.push({ to: '/settings', icon: Settings, label: t('nav.settings') });
   }
 
   // Genres page
-  navItems.push({ to: '/genres', icon: Film, label: 'Genres' });
+  navItems.push({ to: '/genres', icon: Film, label: t('nav.genres') });
+
+  // Support / donate
+  navItems.push({ to: '/donate', icon: Heart, label: t('nav.donate') });
 
   if (isAdmin) {
-    navItems.push({ to: '/admin', icon: Shield, label: 'Admin' });
+    navItems.push({ to: '/admin', icon: Shield, label: t('nav.admin') });
   }
 
   return (
@@ -98,7 +103,7 @@ export default function Navigation() {
                   className="relative px-6 py-2.5 rounded-full flex items-center gap-2 text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-300"
                 >
                   <LogOut size={18} />
-                  <span className="font-medium text-sm">Logout</span>
+                  <span className="font-medium text-sm">{t('nav.logout')}</span>
                 </button>
               ) : (
                 <Link
@@ -106,7 +111,7 @@ export default function Navigation() {
                   className="relative px-6 py-2.5 rounded-full flex items-center gap-2 text-white bg-primary-600 hover:bg-primary-700 transition-all duration-300 shadow-lg shadow-primary-900/30"
                 >
                   <LogIn size={18} />
-                  <span className="font-medium text-sm">Login</span>
+                  <span className="font-medium text-sm">{t('nav.login')}</span>
                 </Link>
               )}
             </div>
@@ -119,16 +124,17 @@ export default function Navigation() {
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f]/90 backdrop-blur-xl border-t border-white/10" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex justify-between text-sm text-gray-400">
           {[
-            { to: '/', Icon: Home, label: 'Home' },
-            { to: '/search', Icon: Search, label: 'Search' },
-            { to: '/library', Icon: Library, label: 'Library' },
-            { to: '/profile', Icon: User, label: 'Profile' },
+            { to: '/', Icon: Home, label: t('nav.home') },
+            { to: '/search', Icon: Search, label: t('nav.search') },
+            { to: '/library', Icon: Library, label: t('nav.library') },
+            { to: '/profile', Icon: User, label: t('nav.profile') },
           ].map(({ to, Icon, label }, idx) => {
             const isActive = currentPath === to;
             return (
               <Link
                 key={to + idx}
                 to={to}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'flex-1 flex flex-col items-center justify-center py-2',
                   isActive ? 'text-primary-500' : 'text-gray-400 hover:text-white'

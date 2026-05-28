@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Palette, Info, Code, User, Save, Loader2, Check } from 'lucide-react';
+import { Palette, Info, Code, User, Save, Loader2, Globe } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../i18n/I18nContext';
+import { supportedLocales } from '../i18n/translations';
 
 /* Since we moved to Tailwind only, we don't strictly need useTheme for colors, 
    but if we want to support switching back to a different theme, we might keep it.
@@ -9,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function SettingsPage() {
   const { user, updateProfile } = useAuth();
+  const { locale, setLocale, t } = useI18n();
   const [name, setName] = useState(user?.name || '');
   const [isUpdating, setIsUpdating] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -23,9 +26,9 @@ export default function SettingsPage() {
     setMessage(null);
     try {
       await updateProfile(name);
-      setMessage({ type: 'success', text: 'Profile updated successfully' });
+      setMessage({ type: 'success', text: t('settings.profileUpdated') });
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to update profile' });
+      setMessage({ type: 'error', text: t('settings.profileUpdateFailed') });
     } finally {
       setIsUpdating(false);
     }
@@ -35,8 +38,8 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] pt-28 px-6 md:px-16 pb-20 max-w-5xl mx-auto">
-      <h1 className="text-4xl md:text-5xl font-black text-white mb-2">Settings</h1>
-      <p className="text-gray-400 mb-12">Manage your preferences and app info.</p>
+      <h1 className="text-4xl md:text-5xl font-black text-white mb-2">{t('settings.title')}</h1>
+      <p className="text-gray-400 mb-12">{t('settings.subtitle')}</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* ACCOUNT SECTION */}
@@ -46,24 +49,24 @@ export default function SettingsPage() {
               <User size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Account</h2>
-              <p className="text-sm text-gray-500">Manage your personal details</p>
+              <h2 className="text-xl font-bold text-white">{t('settings.account')}</h2>
+              <p className="text-sm text-gray-500">{t('settings.accountDesc')}</p>
             </div>
           </div>
 
           <form onSubmit={handleUpdateProfile} className="space-y-4 max-w-md">
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Full Name</label>
+              <label className="block text-sm font-medium text-gray-400 mb-1">{t('settings.fullName')}</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500"
-                placeholder="Your Name"
+                placeholder={t('settings.fullName')}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-400 mb-1">{t('settings.email')}</label>
               <input
                 type="email"
                 value={user?.email || ''}
@@ -74,7 +77,7 @@ export default function SettingsPage() {
 
             {user?.subscriptionEndsAt && (
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Subscription Expires</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1">{t('settings.subscriptionExpires')}</label>
                 <input
                   type="text"
                   value={new Date(user.subscriptionEndsAt).toLocaleDateString()}
@@ -96,9 +99,50 @@ export default function SettingsPage() {
               className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
             >
               {isUpdating ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-              Save Changes
+              {t('settings.saveChanges')}
             </button>
           </form>
+        </div>
+
+        {/* LANGUAGE SECTION */}
+        <div className="glass-panel p-8 rounded-2xl bg-white/5 border border-white/5">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 rounded-full bg-sky-900/30 text-sky-400">
+              <Globe size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">{t('settings.language')}</h2>
+              <p className="text-sm text-gray-500">{t('settings.languageDesc')}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {supportedLocales.map((loc) => {
+              const active = loc.code === locale;
+              return (
+                <button
+                  key={loc.code}
+                  type="button"
+                  onClick={() => setLocale(loc.code)}
+                  aria-pressed={active}
+                  className={`glass-panel p-4 rounded-lg border text-left flex items-center gap-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                    active ? 'border-primary-600 bg-primary-900/10' : 'border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <span className="text-2xl" aria-hidden>{loc.flag}</span>
+                  <div className="flex-1">
+                    <div className="font-semibold text-white text-sm">{loc.name}</div>
+                    <div className="text-[11px] text-gray-500 uppercase">{loc.code}</div>
+                  </div>
+                  {active && (
+                    <span className="text-[10px] font-bold bg-primary-600 px-1.5 py-0.5 rounded text-white">
+                      ACTIVE
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* THEME SECTION (Theme Selector) */}
@@ -108,47 +152,44 @@ export default function SettingsPage() {
               <Palette size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Appearance</h2>
-              <p className="text-sm text-gray-500">Customize look and feel</p>
+              <h2 className="text-xl font-bold text-white">{t('settings.appearance')}</h2>
+              <p className="text-sm text-gray-500">{t('settings.appearanceDesc')}</p>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="p-4 rounded-xl border border-primary-600/50 bg-primary-900/10 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#720e1e]"></div>
-                <span className="font-semibold text-white">Premium Maroon</span>
-              </div>
-              <span className="text-xs font-bold bg-primary-600 px-2 py-1 rounded text-white">ACTIVE</span>
-            </div>
-            <div className="p-4 rounded-xl border border-white/5 bg-black/20 flex items-center justify-between opacity-50 cursor-not-allowed">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#E50914]"></div>
-                <span className="font-semibold text-gray-400">Netflix Red</span>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
-            {availableThemes.map((t) => (
-              <div
-                key={t.id}
-                className={`glass-panel p-4 rounded-lg border ${t.id === currentTheme.id ? 'border-primary-600' : 'border-white/10'} flex flex-col items-start justify-between cursor-pointer`}
-                onClick={() => setCurrentTheme(t.id)}
-              >
-                <div className="flex items-center gap-3 mb-2 w-full justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.primary }} />
-                    <span className="font-semibold text-white">{t.name}</span>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {availableThemes.map((t) => {
+              const active = t.id === currentTheme.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setCurrentTheme(t.id)}
+                  aria-pressed={active}
+                  aria-label={`Use ${t.name} theme`}
+                  className={`glass-panel p-4 rounded-lg border text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+                    active ? 'border-primary-600 bg-primary-900/10' : 'border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2 w-full justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.primary }} />
+                      <span className="font-semibold text-white">{t.name}</span>
+                    </div>
+                    {active && (
+                      <span className="text-[10px] font-bold bg-primary-600 px-1.5 py-0.5 rounded text-white">
+                        ACTIVE
+                      </span>
+                    )}
                   </div>
-                  {t.id === currentTheme.id && <Check size={14} className="text-green-400" />}
-                </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.primary }} />
-                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.secondary }} />
-                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.darkBackground }} />
-                </div>
-              </div>
-            ))}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.primary }} />
+                    <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.secondary }} />
+                    <span className="w-4 h-4 rounded-full" style={{ backgroundColor: t.colors.darkBackground }} />
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -159,18 +200,18 @@ export default function SettingsPage() {
               <Info size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">About N-Movie</h2>
-              <p className="text-sm text-gray-500">Version info</p>
+              <h2 className="text-xl font-bold text-white">{t('settings.about')}</h2>
+              <p className="text-sm text-gray-500">{t('settings.aboutDesc')}</p>
             </div>
           </div>
 
           <div className="space-y-4 text-gray-300">
             <div className="flex justify-between items-center py-2 border-b border-white/5">
-              <span>Version</span>
+              <span>{t('settings.version')}</span>
               <span className="font-mono text-gray-500">2.0.0 (Maroon)</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-white/5">
-              <span>Build</span>
+              <span>{t('settings.build')}</span>
               <span className="font-mono text-gray-500">Production</span>
             </div>
             <div className="pt-4 text-sm text-gray-500 leading-relaxed">

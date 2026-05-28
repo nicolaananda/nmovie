@@ -48,13 +48,22 @@ exports.register = async (req, res) => {
         const isFirstUser = userCount === 0;
         const role = isFirstUser ? 'ADMIN' : 'USER';
 
-        const trialPlan = isFirstUser ? null : await prisma.subscriptionPlan.findFirst({
-            where: { durationDays: 1, isActive: true },
-            orderBy: { id: 'asc' },
-        });
+        // Trial policy:
+        //  - First user becomes ADMIN, no trial expiry.
+        //  - Otherwise, give a `TRIAL_DAYS` (default 30) approved trial.
+        //    Donation-supported model: we approve up front and let admins
+        //    manually revoke if needed, instead of holding everyone in
+        //    PENDING.
+        const trialDays = parseInt(process.env.TRIAL_DAYS || '30');
+        const autoApprove = (process.env.AUTO_APPROVE_TRIAL || 'true') !== 'false';
 
         const trialEnd = new Date();
-        trialEnd.setDate(trialEnd.getDate() + 1);
+        trialEnd.setDate(trialEnd.getDate() + trialDays);
+
+        const trialPlan = isFirstUser ? null : await prisma.subscriptionPlan.findFirst({
+            where: { durationDays: trialDays, isActive: true },
+            orderBy: { id: 'asc' },
+        });
 
         const user = await prisma.user.create({
             data: {
@@ -62,8 +71,8 @@ exports.register = async (req, res) => {
                 email,
                 password: hashedPassword,
                 role,
-                status: 'APPROVED',
-                subscriptionEndsAt: trialEnd,
+                status: isFirstUser || autoApprove ? 'APPROVED' : 'PENDING',
+                subscriptionEndsAt: isFirstUser ? null : trialEnd,
                 ...(trialPlan ? { subscriptionPlanId: trialPlan.id } : {}),
             },
         });
@@ -72,10 +81,12 @@ exports.register = async (req, res) => {
             await createNotification(
                 user.id,
                 'SYSTEM',
-                'Welcome to Nuvio!',
+                'Welcome to N-Movie!',
                 isFirstUser
                     ? 'Welcome! Your admin account is ready.'
-                    : `Welcome! You have a 24-hour free trial. Enjoy!`
+                    : autoApprove
+                        ? `Welcome! You have a ${trialDays}-day trial. If you enjoy the app, consider supporting us via donation.`
+                        : 'Your account is awaiting admin approval.',
             );
 
             // Log activity
@@ -183,18 +194,40 @@ exports.updateMe = async (req, res) => {
     }
 };
 
-// Forgot Password - generate reset token (admin handoff)
+// Forgot Password - generate reset token and email it to the user.
+//
+// We always return the same response regardless of whether the email
+// exists in the database, to avoid leaking which addresses are registered.
+// SMTP errors are logged but not surfaced to the client for the same reason.
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    // Do not reveal whether the email exists for security
     if (user) {
       const token = crypto.randomBytes(32).toString('hex');
       const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-      await prisma.user.update({ where: { id: user.id }, data: { resetToken: token, resetTokenExpiry: expiry } });
-      // Log the request for admin visibility
-      await logger.info('Password reset requested', { userId: user.id, email: user.email, token });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { resetToken: token, resetTokenExpiry: expiry },
+      });
+
+      try {
+        const sent = await sendPasswordResetEmail({
+          to: user.email,
+          name: user.name,
+          token,
+        });
+        if (!sent) {
+          logger.warn('Password reset requested but email service is not configured', {
+            userId: user.id,
+          });
+        }
+      } catch (mailErr) {
+        logger.error('Failed to send password reset email', {
+          userId: user.id,
+          error: mailErr.message,
+        });
+      }
     }
     res.json({ message: 'If this email is registered, a password reset has been initiated.' });
   } catch (error) {
@@ -207,13 +240,23 @@ exports.forgotPassword = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
   try {
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Invalid token' });
+    }
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
     const user = await prisma.user.findFirst({ where: { resetToken: token } });
     if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
       return res.status(400).json({ error: 'Invalid or expired token' });
     }
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
-    await prisma.user.update({ where: { id: user.id }, data: { password: hashedPassword, resetToken: null, resetTokenExpiry: null } });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword, resetToken: null, resetTokenExpiry: null },
+    });
     res.json({ message: 'Password reset successful' });
   } catch (error) {
     logger.error('Reset password error', { error: error.message });

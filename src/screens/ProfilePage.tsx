@@ -63,7 +63,17 @@ export default function ProfilePage() {
     return (
         <div className="min-h-screen bg-[#0f0f0f] pt-24 px-4 md:px-8">
             <div className="max-w-4xl mx-auto">
-                <h1 className="text-3xl font-bold text-white mb-8">Profile Settings</h1>
+                <div className="flex items-center gap-3 mb-8">
+                    <h1 className="text-3xl font-bold text-white">Profile Settings</h1>
+                    {user?.isSupporter && (
+                        <span
+                            title={user.supporterSince ? `Supporter since ${new Date(user.supporterSince).toLocaleDateString()}` : 'Supporter'}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary-500/20 text-primary-300 border border-primary-500/40"
+                        >
+                            ♥ Supporter
+                        </span>
+                    )}
+                </div>
 
                 {message && (
                     <div

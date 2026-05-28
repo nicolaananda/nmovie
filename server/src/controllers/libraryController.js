@@ -1,10 +1,24 @@
 const prisma = require('../prisma');
 
+const VALID_CATEGORIES = ['WATCHLIST', 'FAVORITE', 'WATCHED'];
+
+function normalizeCategory(value) {
+    if (!value) return undefined;
+    const v = String(value).toUpperCase();
+    return VALID_CATEGORIES.includes(v) ? v : undefined;
+}
+
 exports.getLibrary = async (req, res) => {
     try {
+        // Optional `?category=WATCHLIST|FAVORITE|WATCHED` filter. Without
+        // it we return everything, sorted newest first.
+        const category = normalizeCategory(req.query.category);
         const library = await prisma.libraryItem.findMany({
-            where: { userId: req.user.id },
-            orderBy: { addedAt: 'desc' }
+            where: {
+                userId: req.user.id,
+                ...(category ? { category } : {}),
+            },
+            orderBy: { addedAt: 'desc' },
         });
         res.json(library);
     } catch (error) {
@@ -16,9 +30,7 @@ exports.getLibrary = async (req, res) => {
 exports.addToLibrary = async (req, res) => {
     try {
         const { tmdbId, type, name, poster } = req.body;
-
-        // Check if customized ID format (e.g. tmdb:123) or raw ID
-        // We treat tmdbId as string unique identifier provided by frontend
+        const category = normalizeCategory(req.body.category) || 'WATCHLIST';
 
         const newItem = await prisma.libraryItem.create({
             data: {
@@ -26,17 +38,55 @@ exports.addToLibrary = async (req, res) => {
                 tmdbId: String(tmdbId),
                 type,
                 name,
-                poster
-            }
+                poster,
+                category,
+            },
         });
 
         res.status(201).json(newItem);
     } catch (error) {
-        // Unique constraint violation (P2002)
+        // Unique constraint violation (P2002): the user already has this
+        // item in some category. Move it to the new one instead of erroring.
         if (error.code === 'P2002') {
+            const { tmdbId } = req.body;
+            const category = normalizeCategory(req.body.category) || 'WATCHLIST';
+            const updated = await prisma.libraryItem.updateMany({
+                where: { userId: req.user.id, tmdbId: String(tmdbId) },
+                data: { category },
+            });
+            if (updated.count > 0) {
+                const item = await prisma.libraryItem.findFirst({
+                    where: { userId: req.user.id, tmdbId: String(tmdbId) },
+                });
+                return res.status(200).json(item);
+            }
             return res.status(400).json({ message: 'Item already in library' });
         }
         console.error('Add to library error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+exports.updateLibraryItem = async (req, res) => {
+    try {
+        const { tmdbId } = req.params;
+        const category = normalizeCategory(req.body.category);
+        if (!category) {
+            return res.status(400).json({ message: 'Invalid category' });
+        }
+        const result = await prisma.libraryItem.updateMany({
+            where: { userId: req.user.id, tmdbId: String(tmdbId) },
+            data: { category },
+        });
+        if (result.count === 0) {
+            return res.status(404).json({ message: 'Item not found' });
+        }
+        const item = await prisma.libraryItem.findFirst({
+            where: { userId: req.user.id, tmdbId: String(tmdbId) },
+        });
+        res.json(item);
+    } catch (error) {
+        console.error('Update library item error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -45,17 +95,11 @@ exports.removeFromLibrary = async (req, res) => {
     try {
         const { tmdbId } = req.params;
 
-        // We must use deleteMany because we are deleting by (userId, tmdbId) composite,
-        // or we could use the unique constraint but deleteMany is safe if we filter by userId.
-        // Actually, since we don't have primary key 'id' in the route params (we have tmdbId),
-        // and we want to ensure we only delete THIS user's item:
-
-        // Using deleteMany is simplest/related to how we find it.
         const result = await prisma.libraryItem.deleteMany({
             where: {
                 userId: req.user.id,
-                tmdbId: String(tmdbId)
-            }
+                tmdbId: String(tmdbId),
+            },
         });
 
         if (result.count === 0) {

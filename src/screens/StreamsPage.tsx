@@ -7,6 +7,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import { providerService } from '../services/providerService';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 export default function StreamsPage() {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -14,6 +15,7 @@ export default function StreamsPage() {
   const navigate = useNavigate();
   const { currentTheme } = useTheme();
   const { user, isApproved } = useAuth();
+  const toast = useToast();
 
   // Get season and episode from query params (for series)
   const season = searchParams.get('season') ? parseInt(searchParams.get('season')!) : undefined;
@@ -59,7 +61,7 @@ Streams Found: ${streams?.length || 0}
     }
 
     if (!isApproved) {
-      alert('Your account is pending approval. You cannot play content strictly yet.');
+      toast.warning('Your account is pending approval. Playback unlocks once an admin approves it.');
       return;
     }
 

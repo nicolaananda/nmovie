@@ -4,12 +4,17 @@ import { History, Trash2, Play } from 'lucide-react';
 import EmptyState from '../components/EmptyState';
 import Skeleton from '../components/Skeleton';
 import { useNavigate } from 'react-router-dom';
+import { resolvePosterUrl } from '../utils/posterUrl';
+import { useToast } from '../contexts/ToastContext';
+import { useT } from '../i18n/I18nContext';
 
 export default function WatchHistoryPage() {
     const [history, setHistory] = useState<WatchProgress[]>([]);
     const [loading, setLoading] = useState(true);
     const [total, setTotal] = useState(0);
     const navigate = useNavigate();
+    const toast = useToast();
+    const t = useT();
 
     useEffect(() => {
         fetchHistory();
@@ -28,23 +33,34 @@ export default function WatchHistoryPage() {
     };
 
     const handleClearHistory = async () => {
-        if (!confirm('Are you sure you want to clear your watch history?')) return;
+        const ok = await toast.confirm({
+            title: t('history.clearTitle'),
+            message: t('history.clearMessage'),
+            confirmLabel: t('common.delete'),
+            destructive: true,
+        });
+        if (!ok) return;
 
         try {
             await watchHistoryService.clearHistory();
             setHistory([]);
             setTotal(0);
+            toast.success(t('history.cleared'));
         } catch (error) {
             console.error('Failed to clear history', error);
+            toast.error(t('error.generic'));
         }
     };
 
     const handlePlay = (item: WatchProgress) => {
-        if (item.type === 'movie') {
-            navigate(`/metadata/movie/${item.tmdbId}`);
-        } else {
-            navigate(`/metadata/series/${item.tmdbId}`);
-        }
+        const base = item.type === 'movie'
+            ? `/metadata/movie/${item.tmdbId}`
+            : `/metadata/series/${item.tmdbId}`;
+        const params = new URLSearchParams();
+        if (item.seasonNumber) params.set('season', String(item.seasonNumber));
+        if (item.episodeNumber) params.set('episode', String(item.episodeNumber));
+        const qs = params.toString();
+        navigate(qs ? `${base}?${qs}` : base);
     };
 
     if (loading) {
@@ -62,8 +78,8 @@ export default function WatchHistoryPage() {
                     <div className="flex items-center gap-4">
                         <History size={32} className="text-primary-500" />
                         <div>
-                            <h1 className="text-3xl font-bold text-white">Watch History</h1>
-                            <p className="text-gray-400 mt-1">{total} items</p>
+                            <h1 className="text-3xl font-bold text-white">{t('history.title')}</h1>
+                            <p className="text-gray-400 mt-1">{t('history.itemsCount', { count: total })}</p>
                         </div>
                     </div>
 
@@ -73,7 +89,7 @@ export default function WatchHistoryPage() {
                             className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors border border-red-500/30"
                         >
                             <Trash2 size={18} />
-                            Clear History
+                            {t('common.delete')}
                         </button>
                     )}
                 </div>
@@ -81,24 +97,27 @@ export default function WatchHistoryPage() {
                 {history.length === 0 ? (
                     <EmptyState
                       icon={History}
-                      title="No watch history yet"
-                      description="Start watching to see your history here"
-                      actionLabel="Browse"
+                      title={t('history.empty')}
+                      description={t('history.emptyDesc')}
+                      actionLabel={t('common.search')}
                       actionTo="/search"
                     />
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                         {history.map((item) => (
-                            <div
+                            <button
                                 key={item.id}
-                                className="group relative cursor-pointer"
+                                type="button"
                                 onClick={() => handlePlay(item)}
+                                aria-label={`Play ${item.name}`}
+                                className="group relative cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-lg"
                             >
                                 <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-white/5">
                                     {item.poster ? (
                                         <img
-                                            src={`https://image.tmdb.org/t/p/w500${item.poster}`}
+                                            src={resolvePosterUrl(item.poster) ?? ''}
                                             alt={item.name}
+                                            loading="lazy"
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                         />
                                     ) : (
@@ -143,7 +162,7 @@ export default function WatchHistoryPage() {
                                         {new Date(item.lastWatchedAt!).toLocaleDateString()}
                                     </p>
                                 </div>
-                            </div>
+                            </button>
                         ))}
                     </div>
                 )}

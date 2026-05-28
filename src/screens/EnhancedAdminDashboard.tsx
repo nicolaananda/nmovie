@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 import SubscriptionPlanManager from '../components/admin/SubscriptionPlanManager';
 import CustomSubtitleManager from '../components/admin/CustomSubtitleManager';
+import FeaturedManager from '../components/admin/FeaturedManager';
+import { BarChart, HorizontalBars } from '../components/admin/Charts';
+import { useToast } from '../contexts/ToastContext';
 
 interface Analytics {
   totalUsers: number;
@@ -24,12 +27,14 @@ interface Analytics {
   totalWatchTimeHours: number;
   mostWatched: Array<{ tmdbId: string; name: string; type: string; _count: { id: number } }>;
   userGrowth?: Array<{ date: string; count: number }>;
+  watchTimeByDay?: Array<{ date: string; hours: number }>;
 }
 
 type TabType = 'overview' | 'users' | 'activity' | 'logs' | 'plans' | 'subtitles';
 
 export default function EnhancedAdminDashboard() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -64,10 +69,17 @@ export default function EnhancedAdminDashboard() {
   }, []);
 
   useEffect(() => {
-    fetchAnalytics();
-    fetchUsers();
-    fetchActivityLogs();
-    fetchAdminActions();
+    // Fire all four mount fetches in parallel. They are independent and
+    // hit different endpoints; serializing them via re-render loops added
+    // 3-4× the wall-clock time on slower connections.
+    Promise.all([
+      fetchAnalytics(),
+      fetchUsers(),
+      fetchActivityLogs(),
+      fetchAdminActions(),
+    ]).catch((error) => {
+      console.error('Failed to load admin dashboard data', error);
+    });
   }, []);
 
   const fetchActivityLogs = async () => {
@@ -169,7 +181,7 @@ export default function EnhancedAdminDashboard() {
 
   const handleBulkNotify = async () => {
     if (!bulkNotifyTitle || !bulkNotifyMessage) {
-      alert('Please provide title and message for the notification');
+      toast.warning('Please provide title and message for the notification');
       return;
     }
     try {
@@ -180,10 +192,10 @@ export default function EnhancedAdminDashboard() {
       setBulkNotifyMessage('');
       setBulkNotifyTarget('ALL');
       setSelectedUserIds(new Set());
-      alert('Bulk notification sent successfully');
+      toast.success('Bulk notification sent successfully');
     } catch (e) {
       console.error('Bulk notify failed', e);
-      alert('Failed to send bulk notification');
+      toast.error('Failed to send bulk notification');
     }
   };
 
@@ -305,70 +317,41 @@ export default function EnhancedAdminDashboard() {
                 <p className="text-3xl font-bold text-white">{analytics.totalWatchTimeHours ?? 0}h</p>
               </div>
             </div>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm">
+                <h3 className="text-white text-lg font-semibold mb-4">User Growth (Last 7 days)</h3>
+                <BarChart
+                  data={(analytics.userGrowth ?? []).map((d) => ({ label: d.date, value: d.count }))}
+                />
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm">
+                <h3 className="text-white text-lg font-semibold mb-4">Watch Time (Last 7 days)</h3>
+                <BarChart
+                  data={(analytics.watchTimeByDay ?? []).map((d) => ({ label: d.date, value: d.hours }))}
+                  color="fill-blue-500"
+                  unit="h"
+                  decimals={1}
+                />
+              </div>
+            </div>
+
             {/* Most Watched Content */}
             <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm">
               <h2 className="text-xl font-bold text-white mb-4">Most Watched Content</h2>
-              <div className="space-y-3">
-                {analytics.mostWatched.map((item, idx) => (
-                  <div key={item.tmdbId} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <span className="text-gray-400 font-bold">#{idx + 1}</span>
-                      <div>
-                        <p className="text-white font-medium">{item.name}</p>
-                        <p className="text-gray-400 text-sm capitalize">{item.type}</p>
-                      </div>
-                    </div>
-                    <span className="text-primary-400 font-bold">{item._count.id} views</span>
-                  </div>
-                ))}
-              </div>
+              <HorizontalBars
+                data={analytics.mostWatched.map((item) => ({
+                  label: item.name,
+                  value: item._count.id,
+                  sub: item.type,
+                }))}
+                unit=" views"
+              />
             </div>
-          </div>
-        )}
 
-        {/* Charts: User Growth & Watch Trends (no external libs) */}
-        {analytics?.userGrowth && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* User Growth - 7 days */}
-            <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm" style={{ minHeight: 180 }}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white text-lg font-semibold">User Growth (Last 7 days)</h3>
-              </div>
-              <div className="flex items-end h-40 gap-2" aria-label="user-growth-bars">
-                {analytics.userGrowth.map((day, idx) => {
-                  const max = Math.max(...(analytics.userGrowth ?? []).map((d) => d.count), 1);
-                  const height = Math.max(Math.round((day.count / max) * 120), 6);
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center" title={`${day.date}: ${day.count}`}>
-                      <div className="w-6 bg-primary-600 rounded-t" style={{ height }} />
-                      <div className="mt-2 text-xs text-gray-300">{day.date}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Watch Trends */}
-            <div className="bg-white/5 border border-white/10 rounded-xl p-6 backdrop-blur-sm" style={{ minHeight: 180 }}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white text-lg font-semibold">Watch Trends</h3>
-              </div>
-              <div className="space-y-2">
-                {analytics.mostWatched.slice(0, 5).map((item) => {
-                  const count = item._count?.id ?? 0;
-                  const max = Math.max(...analytics.mostWatched.map((x) => x._count.id), 1);
-                  const width = Math.round((count / max) * 100);
-                  return (
-                    <div key={item.tmdbId} className="flex items-center gap-3" title={`${item.name}: ${count} views`}>
-                      <span className="text-xs text-gray-300 w-6 text-right">{item.name.split(' ').slice(0,2).join(' ')}</span>
-                      <div className="flex-1 h-4 bg-white/10 rounded-full" aria-label={item.name}>
-                        <div className="h-4 bg-blue-500 rounded-full" style={{ width: `${width}%` }} />
-                      </div>
-                      <span className="text-sm text-gray-300 w-16 text-right">{count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Featured banner editor */}
+            <FeaturedManager />
           </div>
         )}
         {/* Users Tab */}
@@ -568,12 +551,26 @@ export default function EnhancedAdminDashboard() {
                             {u.status === 'APPROVED' && (
                               <button
                                 onClick={async () => {
-                                  const days = prompt('Extend subscription by how many days?', '30');
+                                  const days = await toast.prompt({
+                                    title: 'Extend subscription',
+                                    message: 'Extend by how many days?',
+                                    defaultValue: '30',
+                                    placeholder: '30',
+                                  });
                                   if (!days) return;
+                                  const parsed = parseInt(days);
+                                  if (!parsed || parsed <= 0) {
+                                    toast.warning('Please enter a positive number of days');
+                                    return;
+                                  }
                                   try {
-                                    await adminService.updateUserStatus(u.id, 'APPROVED', parseInt(days));
+                                    await adminService.updateUserStatus(u.id, 'APPROVED', parsed);
+                                    toast.success(`Subscription extended by ${parsed} days`);
                                     fetchUsers();
-                                  } catch (e) { console.error(e); }
+                                  } catch (e) {
+                                    console.error(e);
+                                    toast.error('Failed to extend subscription');
+                                  }
                                 }}
                                 className="px-2 py-1 text-xs rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30"
                               >

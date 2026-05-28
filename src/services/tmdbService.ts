@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { StreamingContent } from '../types/metadata';
+import { TMDB_IMAGE_BASE_URL, TMDB_DEFAULT_POSTER_SIZE } from '../constants';
 
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || '';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org/t/p';
 
 class TMDBService {
   private api = axios.create({
@@ -13,7 +13,7 @@ class TMDBService {
     },
   });
 
-  getImageUrl(path: string | null, size: string = 'w500'): string {
+  getImageUrl(path: string | null, size: string = TMDB_DEFAULT_POSTER_SIZE): string {
     if (!path) return '/placeholder-poster.jpg';
     return `${TMDB_IMAGE_BASE_URL}/${size}${path}`;
   }
@@ -81,6 +81,16 @@ class TMDBService {
       return response.data.results.map((item: any) => this.transformToStreamingContent(item, type));
     } catch (error) {
       console.error('Error fetching similar content:', error);
+      return [];
+    }
+  }
+
+  async getRecommendations(type: 'movie' | 'tv', id: number): Promise<StreamingContent[]> {
+    try {
+      const response = await this.api.get(`/${type}/${id}/recommendations`);
+      return response.data.results.map((item: any) => this.transformToStreamingContent(item, type));
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
       return [];
     }
   }

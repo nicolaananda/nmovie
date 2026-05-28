@@ -59,6 +59,11 @@ model User {
   resetTokenExpiry    DateTime?
   updatedAt           DateTime         @updatedAt
 
+  // Donation supporter flag — set manually by admin when a user donates.
+  // Drives the "Supporter" badge in the UI.
+  isSupporter         Boolean          @default(false)
+  supporterSince      DateTime?
+
   library             LibraryItem[]
   watchHistory        WatchHistory[]
   notifications       Notification[]
@@ -80,18 +85,26 @@ model SubscriptionPlan {
   users           User[]
 }
 
+enum LibraryCategory {
+  WATCHLIST
+  FAVORITE
+  WATCHED
+}
+
 model LibraryItem {
-  id        Int      @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   tmdbId    String
   type      String   // 'movie' or 'series'
   name      String
   poster    String?
-  addedAt   DateTime @default(now())
+  category  LibraryCategory @default(WATCHLIST)
+  addedAt   DateTime        @default(now())
 
   @@unique([userId, tmdbId])
   @@index([userId])
+  @@index([userId, category])
 }
 
 model WatchHistory {
@@ -187,4 +200,24 @@ model AdminAction {
 
   @@index([adminId, createdAt])
   @@index([createdAt])
+}
+
+// Admin-curated hero/banner content. The HomePage shows the most recent
+// active row instead of falling back to `trending[0]`.
+model FeaturedContent {
+  id          Int      @id @default(autoincrement())
+  tmdbId      String
+  mediaType   String   // 'movie' or 'tv'
+  title       String
+  description String?
+  banner      String?
+  poster      String?
+  badge       String?  // e.g. "N-Movie Exclusive", "Editor's Pick"
+  startsAt    DateTime @default(now())
+  endsAt      DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, startsAt, endsAt])
 }

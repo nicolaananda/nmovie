@@ -5,22 +5,39 @@ import { ArrowLeft, AlertCircle, Subtitles, X } from 'lucide-react';
 import type { Subtitle } from '../types/metadata';
 import Skeleton from '../components/Skeleton';
 import { useVidrockProgress } from '../hooks/useVidrockProgress';
+import { useNextEpisode } from '../hooks/useNextEpisode';
+import NextEpisodeOverlay from '../components/NextEpisodeOverlay';
 import SubtitleOverlay from '../components/SubtitleOverlay';
-import { parseSrt, type SubtitleCue } from '../utils/srtParser';
+import { parseSrt, shiftCues, type SubtitleCue } from '../utils/srtParser';
 import { customSubtitleService, type ApprovedSubtitle } from '../services/customSubtitleService';
+import { useToast } from '../contexts/ToastContext';
+import { useT } from '../i18n/I18nContext';
+import { readPlayerPayload } from '../utils/playerPayload';
 
 export default function PlayerPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const toast = useToast();
+  const t = useT();
   const [playing, setPlaying] = useState(true);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [cssFull, setCssFull] = useState(false);
   const playerRef = useRef<ReactPlayer>(null);
   const embedContainerRef = useRef<HTMLDivElement>(null);
 
-  // Get URL and type from parameters
-  const effectiveUrl = searchParams.get('url');
-  const effectiveType = searchParams.get('type');
+  // The address bar carries an opaque token (`?t=...`) when the user
+  // arrives via the in-app navigation. The actual stream URL and other
+  // payload live in sessionStorage so the URL doesn't leak the source.
+  // For backward compat (external links, older bookmarks), we still
+  // accept the legacy `?url=...&title=...` params.
+  const payload = useMemo(() => {
+    const token = searchParams.get('t');
+    if (token) return readPlayerPayload(token);
+    return null;
+  }, [searchParams]);
+
+  const effectiveUrl = payload?.url ?? searchParams.get('url');
+  const effectiveType = payload?.type ?? searchParams.get('type');
 
   // Validate URL safely
   const validatedUrl = useMemo(() => {
@@ -36,13 +53,28 @@ export default function PlayerPage() {
     return null;
   }, [effectiveUrl]);
 
-  const title = searchParams.get('title') || 'Video Player';
-  const tmdbId = searchParams.get('tmdbId') || '';
-  const mediaType = searchParams.get('mediaType') || '';
-  const poster = searchParams.get('poster') || '';
-  const season = searchParams.get('season') ? parseInt(searchParams.get('season')!) : undefined;
-  const episode = searchParams.get('episode') ? parseInt(searchParams.get('episode')!) : undefined;
+  const title = payload?.title ?? searchParams.get('title') ?? 'Video Player';
+  const tmdbId = payload?.tmdbId ?? searchParams.get('tmdbId') ?? '';
+  const mediaType = payload?.mediaType ?? searchParams.get('mediaType') ?? '';
+  const poster = payload?.poster ?? searchParams.get('poster') ?? '';
+  const season = payload?.season
+    ?? (searchParams.get('season') ? parseInt(searchParams.get('season')!) : undefined);
+  const episode = payload?.episode
+    ?? (searchParams.get('episode') ? parseInt(searchParams.get('episode')!) : undefined);
   const subtitlesJson = searchParams.get('subtitles');
+  // Subtitles can come from either the in-memory payload (preferred) or
+  // from the URL fallback. The downstream parser only knows about strings,
+  // so we serialize the payload variant.
+  const subtitlesSource: string | null = useMemo(() => {
+    if (payload?.subtitles) {
+      try {
+        return JSON.stringify(payload.subtitles);
+      } catch {
+        return null;
+      }
+    }
+    return subtitlesJson;
+  }, [payload, subtitlesJson]);
 
   const isVidrockEmbed = effectiveType === 'embed' && (effectiveUrl?.includes('vidrock.net') ?? false);
 
@@ -58,11 +90,22 @@ export default function PlayerPage() {
 
   const [srtCues, setSrtCues] = useState<SubtitleCue[]>([]);
   const [srtFileName, setSrtFileName] = useState('');
+  // Subtitle sync offset in seconds; positive = subtitle muncul lebih lambat.
+  const [subOffset, setSubOffset] = useState(0);
+  // Subtitle font scale (1 = default, range 0.7–1.6).
+  const [subScale, setSubScale] = useState(1);
   const [vidrockTime, setVidrockTime] = useState(0);
+  const [vidrockDuration, setVidrockDuration] = useState(0);
   const [approvedSubs, setApprovedSubs] = useState<ApprovedSubtitle[]>([]);
   const [showSubMenu, setShowSubMenu] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-play next episode state
+  const { data: nextEpisode } = useNextEpisode(tmdbId, season, episode);
+  const [showNextOverlay, setShowNextOverlay] = useState(false);
+  const [countdown, setCountdown] = useState(10);
+  const [autoPlayCancelled, setAutoPlayCancelled] = useState(false);
 
   useEffect(() => {
     if (!isVidrockEmbed || !tmdbId) return;
@@ -70,9 +113,12 @@ export default function PlayerPage() {
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== 'https://vidrock.net') return;
       if (event.data?.type === 'PLAYER_EVENT') {
-        const { currentTime } = event.data.data;
+        const { currentTime, duration } = event.data.data;
         if (typeof currentTime === 'number') {
           setVidrockTime(currentTime);
+        }
+        if (typeof duration === 'number' && duration > 0) {
+          setVidrockDuration(duration);
         }
       }
     };
@@ -80,6 +126,78 @@ export default function PlayerPage() {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [isVidrockEmbed, tmdbId]);
+
+  // Decide when to surface the "next episode" overlay. We show it during
+  // the last 30 seconds (or 5% of duration, whichever is shorter) of the
+  // current episode, only for series with a known next episode, and only
+  // until the user explicitly cancels it.
+  useEffect(() => {
+    if (!nextEpisode || vidrockDuration <= 0 || autoPlayCancelled) {
+      setShowNextOverlay(false);
+      return;
+    }
+    const threshold = Math.min(30, vidrockDuration * 0.05);
+    const remaining = vidrockDuration - vidrockTime;
+    if (remaining > 0 && remaining <= threshold) {
+      setShowNextOverlay(true);
+      setCountdown(Math.max(1, Math.ceil(remaining)));
+    } else {
+      setShowNextOverlay(false);
+    }
+  }, [nextEpisode, vidrockDuration, vidrockTime, autoPlayCancelled]);
+
+  const goToNextEpisode = useCallback(() => {
+    if (!nextEpisode) return;
+    // Navigate to the metadata page of the same series with the new
+    // season/episode pre-selected via search params. The user picks the
+    // source; we don't auto-launch the iframe to keep behavior predictable
+    // when stream URLs differ between episodes.
+    const params = new URLSearchParams({
+      season: String(nextEpisode.seasonNumber),
+      episode: String(nextEpisode.episodeNumber),
+    });
+    navigate(`/metadata/series/${tmdbId}?${params.toString()}`);
+  }, [navigate, tmdbId, nextEpisode]);
+
+  // When the countdown reaches 0, jump.
+  useEffect(() => {
+    if (!showNextOverlay) return;
+    if (vidrockDuration > 0 && vidrockTime >= vidrockDuration - 0.5) {
+      goToNextEpisode();
+    }
+  }, [showNextOverlay, vidrockTime, vidrockDuration, goToNextEpisode]);
+
+  // Skip-intro: best-effort. Only meaningful for direct streams where we
+  // own the <video> element. For series we surface a button between
+  // 30s and 90s that seeks +75s — the rough length of a typical opening.
+  // The cross-origin embed case (vidrock) can't be seeked from outside
+  // the iframe, so the button is hidden there.
+  const [showSkipIntro, setShowSkipIntro] = useState(false);
+  const directVideoTime = useRef(0);
+  useEffect(() => {
+    if (effectiveType === 'embed') return; // embed: can't seek the iframe
+    if (!season || !episode) return; // not a series episode
+    const internal = playerRef.current?.getInternalPlayer() as HTMLVideoElement | undefined;
+    if (!internal) return;
+    const onTime = () => {
+      const t = internal.currentTime;
+      directVideoTime.current = t;
+      setShowSkipIntro(t >= 30 && t <= 90);
+    };
+    internal.addEventListener('timeupdate', onTime);
+    return () => internal.removeEventListener('timeupdate', onTime);
+  }, [effectiveType, season, episode, validatedUrl]);
+
+  const handleSkipIntro = () => {
+    const internal = playerRef.current?.getInternalPlayer() as HTMLVideoElement | undefined;
+    if (internal) {
+      internal.currentTime = Math.min(
+        (internal.duration || 0) - 1,
+        directVideoTime.current + 75,
+      );
+      setShowSkipIntro(false);
+    }
+  };
 
   useEffect(() => {
     if (!isVidrockEmbed || !tmdbId) return;
@@ -100,7 +218,7 @@ export default function PlayerPage() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const content = ev.target?.result as string;
       if (!content) return;
       const cues = parseSrt(content);
@@ -108,7 +226,12 @@ export default function PlayerPage() {
       setSrtFileName(file.name);
 
       if (tmdbId) {
-        const lang = prompt('Language code for this subtitle? (e.g. id, en, ja)', 'id');
+        const lang = await toast.prompt({
+          title: 'Subtitle language',
+          message: 'Language code for this subtitle? (e.g. id, en, ja)',
+          defaultValue: 'id',
+          placeholder: 'id',
+        });
         if (lang) {
           setUploadStatus('Uploading...');
           customSubtitleService.upload({
@@ -132,7 +255,7 @@ export default function PlayerPage() {
     reader.readAsText(file);
 
     e.target.value = '';
-  }, [tmdbId, mediaType, season, episode]);
+  }, [tmdbId, mediaType, season, episode, toast]);
 
   const clearSrt = useCallback(() => {
     setSrtCues([]);
@@ -141,10 +264,10 @@ export default function PlayerPage() {
 
   // Parse subtitles from JSON and convert to tracks
   const tracks = useMemo(() => {
-    if (!subtitlesJson) return [];
+    if (!subtitlesSource) return [];
 
     try {
-      const subtitles: Subtitle[] = JSON.parse(subtitlesJson);
+      const subtitles: Subtitle[] = JSON.parse(subtitlesSource);
       let firstIndonesianFound = false;
 
       return subtitles.map((sub, idx) => {
@@ -186,7 +309,7 @@ export default function PlayerPage() {
       console.error('[PlayerPage] Failed to parse subtitles:', error);
       return [];
     }
-  }, [subtitlesJson]);
+  }, [subtitlesSource]);
 
   useEffect(() => {
     const prev = document.title;
@@ -262,6 +385,37 @@ export default function PlayerPage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [navigate]);
 
+  // Steal focus back from cross-origin iframe so window-level keyboard
+  // shortcuts (F for fullscreen, Space, arrows, Esc) work without first
+  // clicking on a parent element. The iframe captures focus once it loads,
+  // and because it's cross-origin, key events inside it never bubble out.
+  useEffect(() => {
+    if (!isVidrockEmbed) return;
+
+    const reclaimFocus = () => {
+      // Defer one tick so the browser finishes its focus transition first.
+      setTimeout(() => {
+        const active = document.activeElement;
+        if (active && active.tagName === 'IFRAME') {
+          (active as HTMLElement).blur();
+          embedContainerRef.current?.focus({ preventScroll: true });
+        }
+      }, 0);
+    };
+
+    // `blur` on window fires when focus moves into a child iframe, which
+    // is exactly the symptom we're fixing. This replaces the previous
+    // 400ms poll with a precise, event-driven trigger.
+    window.addEventListener('blur', reclaimFocus);
+    // When the user alt-tabs back to the page, also pull focus to wrapper.
+    window.addEventListener('focus', reclaimFocus);
+
+    return () => {
+      window.removeEventListener('blur', reclaimFocus);
+      window.removeEventListener('focus', reclaimFocus);
+    };
+  }, [isVidrockEmbed]);
+
   const handlePiP = async () => {
     try {
       const video = document.querySelector('video') as HTMLVideoElement | null;
@@ -316,12 +470,74 @@ export default function PlayerPage() {
                 className="hidden"
               />
               {srtFileName ? (
-                <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md border border-green-500/30 rounded-full px-3 py-1.5">
-                  <Subtitles size={14} className="text-green-400" />
-                  <span className="text-[11px] text-green-300 max-w-[100px] truncate">{srtFileName}</span>
-                  <button onClick={clearSrt} className="ml-1 text-gray-400 hover:text-white">
-                    <X size={12} />
-                  </button>
+                <div className="relative">
+                  <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md border border-green-500/30 rounded-full px-3 py-1.5">
+                    <Subtitles size={14} className="text-green-400" />
+                    <span className="text-[11px] text-green-300 max-w-[100px] truncate">{srtFileName}</span>
+                    <button
+                      onClick={() => setShowSubMenu((v) => !v)}
+                      className="ml-1 text-gray-400 hover:text-white"
+                      aria-label="Subtitle settings"
+                      title="Subtitle settings"
+                    >
+                      <span className="text-[10px]">⚙</span>
+                    </button>
+                    <button onClick={clearSrt} className="ml-1 text-gray-400 hover:text-white">
+                      <X size={12} />
+                    </button>
+                  </div>
+                  {showSubMenu && (
+                    <div className="absolute top-full mt-2 right-0 bg-black/90 backdrop-blur-md border border-white/10 rounded-xl p-3 min-w-[260px] z-30 space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">
+                            Sync ({subOffset >= 0 ? '+' : ''}{subOffset.toFixed(1)}s)
+                          </label>
+                          <button
+                            onClick={() => setSubOffset(0)}
+                            className="text-[10px] text-gray-500 hover:text-white"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                        <input
+                          type="range"
+                          min={-10}
+                          max={10}
+                          step={0.1}
+                          value={subOffset}
+                          onChange={(e) => setSubOffset(parseFloat(e.target.value))}
+                          className="w-full accent-primary-500"
+                        />
+                        <div className="flex justify-between text-[9px] text-gray-600 mt-0.5">
+                          <span>-10s</span>
+                          <span>+10s</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">
+                            Size ({Math.round(subScale * 100)}%)
+                          </label>
+                          <button
+                            onClick={() => setSubScale(1)}
+                            className="text-[10px] text-gray-500 hover:text-white"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                        <input
+                          type="range"
+                          min={0.7}
+                          max={1.6}
+                          step={0.05}
+                          value={subScale}
+                          onChange={(e) => setSubScale(parseFloat(e.target.value))}
+                          className="w-full accent-primary-500"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <button
@@ -385,7 +601,17 @@ export default function PlayerPage() {
             {effectiveType === 'embed' ? (
               <div
                 ref={embedContainerRef}
-                className={`w-full h-full relative overflow-hidden bg-black ${cssFull ? 'fixed inset-0 z-[9999]' : ''}`}
+                tabIndex={-1}
+                className={`w-full h-full relative overflow-hidden bg-black outline-none ${cssFull ? 'fixed inset-0 z-[9999]' : ''}`}
+                onMouseEnter={() => {
+                  // Pull focus back from the cross-origin iframe so F /
+                  // Space / arrow keys are received by the parent window.
+                  const active = document.activeElement;
+                  if (active && active.tagName === 'IFRAME') {
+                    (active as HTMLElement).blur();
+                  }
+                  embedContainerRef.current?.focus({ preventScroll: true });
+                }}
                 onDoubleClick={async () => {
                   try {
                     if (document.fullscreenElement) {
@@ -407,8 +633,31 @@ export default function PlayerPage() {
                     className="w-full h-full border-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                     allowFullScreen
+                    // Sandbox tokens here are deliberately narrow:
+                    //  - allow-scripts        : vidrock's player needs JS
+                    //  - allow-same-origin    : its CDN needs same-origin XHR
+                    //  - allow-presentation   : Cast / Picture-in-Picture
+                    //  - allow-forms          : sub-source selectors etc.
+                    // We intentionally do NOT include allow-popups or
+                    // allow-top-navigation, which blocks the random ad
+                    // pop-ups some embed providers try to spawn via
+                    // window.open() / location.href.
+                    sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
+                    referrerPolicy="no-referrer"
                     style={{ position: 'absolute', top: 0, left: 0 }}
-                    onLoad={() => setIframeLoaded(true)}
+                    onLoad={() => {
+                      setIframeLoaded(true);
+                      // Force focus back to wrapper after iframe finishes
+                      // loading. Without this, vidrock's player auto-focuses
+                      // its own video element and swallows key events.
+                      setTimeout(() => {
+                        const active = document.activeElement;
+                        if (active && active.tagName === 'IFRAME') {
+                          (active as HTMLElement).blur();
+                        }
+                        embedContainerRef.current?.focus({ preventScroll: true });
+                      }, 100);
+                    }}
                   />
                 ) : null}
                 {(!iframeLoaded || !progressSeeded) && (
@@ -417,29 +666,54 @@ export default function PlayerPage() {
                   </div>
                 )}
                 {srtCues.length > 0 && (
-                  <SubtitleOverlay cues={srtCues} currentTime={vidrockTime} />
+                  <SubtitleOverlay
+                    cues={subOffset !== 0 ? shiftCues(srtCues, subOffset) : srtCues}
+                    currentTime={vidrockTime}
+                    fontScale={subScale}
+                  />
+                )}
+                {showNextOverlay && nextEpisode && (
+                  <NextEpisodeOverlay
+                    next={nextEpisode}
+                    countdown={countdown}
+                    onPlayNow={goToNextEpisode}
+                    onCancel={() => {
+                      setShowNextOverlay(false);
+                      setAutoPlayCancelled(true);
+                    }}
+                  />
                 )}
               </div>
             ) : (
-              <ReactPlayer
-                ref={playerRef}
-                url={validatedUrl}
-                playing={playing}
-                controls
-                width="100%"
-                height="100%"
-                onPlay={() => setPlaying(true)}
-                onPause={() => setPlaying(false)}
-                config={{
-                  file: {
-                    tracks,
-                    attributes: {
-                      crossOrigin: 'anonymous',
+              <>
+                <ReactPlayer
+                  ref={playerRef}
+                  url={validatedUrl}
+                  playing={playing}
+                  controls
+                  width="100%"
+                  height="100%"
+                  onPlay={() => setPlaying(true)}
+                  onPause={() => setPlaying(false)}
+                  config={{
+                    file: {
+                      tracks,
+                      attributes: {
+                        crossOrigin: 'anonymous',
+                      },
                     },
-                  },
-                }}
-                style={{ position: 'absolute', top: 0, left: 0 }}
-              />
+                  }}
+                  style={{ position: 'absolute', top: 0, left: 0 }}
+                />
+                {showSkipIntro && (
+                  <button
+                    onClick={handleSkipIntro}
+                    className="absolute right-6 bottom-24 z-30 px-4 py-2 rounded-lg bg-black/80 backdrop-blur-md border border-white/10 text-white text-sm font-semibold hover:bg-black/90"
+                  >
+                    {t('player.skipIntro')} →
+                  </button>
+                )}
+              </>
             )}
           </div>
         ) : (

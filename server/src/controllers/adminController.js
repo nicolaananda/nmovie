@@ -78,6 +78,27 @@ exports.getAnalytics = async (req, res) => {
             return { date: label, count: d.count };
         });
 
+        // Watch time per day for the same 7-day window. We use ActivityLog
+        // entries (WATCH_START / WATCH_COMPLETE) as the timestamped event
+        // source so the chart reflects when watching happened, not when
+        // the WatchHistory row was last updated.
+        const watchEvents = await prisma.watchHistory.findMany({
+            where: { lastWatchedAt: { gte: new Date(sevenDaysAgo.toDateString()) } },
+            select: { lastWatchedAt: true, progress: true },
+        });
+        const watchPerDay = days.map((d) => ({ date: d.date, hours: 0 }));
+        for (const ev of watchEvents) {
+            if (!ev.lastWatchedAt) continue;
+            const key = new Date(ev.lastWatchedAt).toISOString().slice(0, 10);
+            const slot = watchPerDay.find((x) => x.date === key);
+            if (slot) slot.hours += (ev.progress || 0) / 3600;
+        }
+        const enrichedWatchTime = watchPerDay.map((d) => {
+            const dateObj = new Date(d.date);
+            const label = dateObj.toLocaleDateString(undefined, { weekday: 'short' });
+            return { date: label, hours: Math.round(d.hours * 10) / 10 };
+        });
+
         res.json({
             totalUsers,
             pendingUsers,
@@ -87,6 +108,7 @@ exports.getAnalytics = async (req, res) => {
             recentActivity,
             mostWatched,
             userGrowth: enrichedGrowth,
+            watchTimeByDay: enrichedWatchTime,
         });
     } catch (error) {
         logger.error('Get analytics error', { error: error.message, adminId: req.user.id });
@@ -491,5 +513,49 @@ exports.deleteSubscriptionPlan = async (req, res) => {
   } catch (error) {
     logger.error('Delete subscription plan error', { error: error.message, adminId: req.user.id });
     res.status(500).json({ error: 'Failed to delete subscription plan' });
+  }
+};
+
+// Toggle the supporter flag manually. Used when an admin verifies a
+// donation came in for a given user. Setting `isSupporter=true` also
+// timestamps `supporterSince` (preserving an existing one if present).
+exports.setUserSupporter = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+
+    const { isSupporter } = req.body;
+    if (typeof isSupporter !== 'boolean') {
+      return res.status(400).json({ error: 'isSupporter must be a boolean' });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'User not found' });
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        isSupporter,
+        supporterSince: isSupporter
+          ? existing.supporterSince ?? new Date()
+          : null,
+      },
+      select: { id: true, isSupporter: true, supporterSince: true },
+    });
+
+    await prisma.adminAction.create({
+      data: {
+        adminId: req.user.id,
+        action: isSupporter ? 'SUPPORTER_GRANT' : 'SUPPORTER_REVOKE',
+        targetId: id,
+        targetType: 'user',
+        description: `${isSupporter ? 'Granted' : 'Revoked'} supporter badge for user ${id}`,
+      },
+    });
+
+    res.json(user);
+  } catch (error) {
+    logger.error('Set user supporter error', { error: error.message, adminId: req.user.id });
+    res.status(500).json({ error: 'Failed to update supporter status' });
   }
 };

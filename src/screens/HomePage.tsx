@@ -1,83 +1,102 @@
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useTrendingContent, usePopularContent, useIndonesianContent, useGenreContent } from '../hooks/useContent';
+import { usePersonalRecommendations } from '../hooks/useRecommendations';
 import { useAuth } from '../contexts/AuthContext';
+import { useT } from '../i18n/I18nContext';
+import { featuredService } from '../services/featuredService';
 import ContentCard from '../components/ContentCard';
 import ContentCardSkeleton from '../components/ContentCardSkeleton';
 import ContinueWatching from '../components/ContinueWatching';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
+import type { StreamingContent } from '../types/metadata';
 
-// Reusable Row Component to avoid duplication
-const CategoryRow = ({ title, fetcher, mediaType }: { title: string, fetcher: any, mediaType: 'movie' | 'tv' }) => {
-  const { data, isLoading, error, refetch } = fetcher(mediaType);
+interface CategoryRowProps {
+  title: string;
+  data: StreamingContent[] | undefined;
+  isLoading: boolean;
+  error: unknown;
+  onRetry: () => void;
+}
 
-  if (isLoading) {
-    // Show skeleton cards while loading
-    return (
-      <div className="relative">
-        <div className="flex gap-5 overflow-x-auto pb-8 hide-scrollbar px-2">
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <ContentCardSkeleton key={idx} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-  if (error) return <ErrorMessage message={`Failed to load ${title}`} onRetry={() => refetch()} />;
-
+function CategoryRow({ title, data, isLoading, error, onRetry }: CategoryRowProps) {
+  const t = useT();
   return (
     <div className="space-y-6 relative group/row">
-        <div className="flex items-center justify-between px-2">
+      <div className="flex items-center justify-between px-2">
         <h2 className="section-title mb-2 flex items-center gap-3">
           <span className="w-1.5 h-8 bg-gradient-to-b from-primary-500 to-primary-800 rounded-full shadow-[0_0_15px_rgba(229,9,20,0.5)]"></span>
           {title}
         </h2>
         <button className="text-sm font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider flex items-center gap-2 group/btn">
-          Explore <span className="group-hover/btn:translate-x-1 transition-transform">→</span>
+          {t('common.explore')} <span className="group-hover/btn:translate-x-1 transition-transform">→</span>
         </button>
       </div>
 
-      <div className="relative">
-        {/* Masks */}
-        <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#0f0f0f] to-transparent z-10 pointer-events-none opacity-0 group-hover/row:opacity-100 transition-opacity duration-500" />
-        <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#0f0f0f] to-transparent z-10 pointer-events-none opacity-0 group-hover/row:opacity-100 transition-opacity duration-500" />
+      {error ? (
+        <ErrorMessage message={`${t('error.failedToLoad')}: ${title}`} onRetry={onRetry} />
+      ) : (
+        <div className="relative">
+          {/* Edge masks */}
+          <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#0f0f0f] to-transparent z-10 pointer-events-none opacity-0 group-hover/row:opacity-100 transition-opacity duration-500" />
+          <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#0f0f0f] to-transparent z-10 pointer-events-none opacity-0 group-hover/row:opacity-100 transition-opacity duration-500" />
 
-        <div className="flex gap-5 overflow-x-auto pb-8 hide-scrollbar scroll-pl-6 px-2">
-          {data?.slice(0, 20).map((content: any, idx: number) => (
-            <div
-              key={content.id}
-              className="flex-shrink-0 w-[160px] md:w-[220px] transition-all duration-500 ease-out"
-              style={{ transitionDelay: `${idx * 50}ms` }}
-            >
-              <ContentCard content={content} />
-            </div>
-          ))}
+          <div className="flex gap-5 overflow-x-auto pb-8 hide-scrollbar scroll-pl-6 px-2">
+            {isLoading
+              ? Array.from({ length: 6 }).map((_, idx) => (
+                  <div key={idx} className="flex-shrink-0 w-[160px] md:w-[220px]">
+                    <ContentCardSkeleton />
+                  </div>
+                ))
+              : data?.slice(0, 20).map((content, idx) => (
+                  <div
+                    key={content.id}
+                    className="flex-shrink-0 w-[160px] md:w-[220px] transition-all duration-500 ease-out"
+                    style={{ transitionDelay: `${idx * 50}ms` }}
+                  >
+                    <ContentCard content={content} />
+                  </div>
+                ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
-};
+}
 
 export default function HomePage() {
-  // Theme customized directly in this file for N-Movie look
   const navigate = useNavigate();
   const { user } = useAuth();
+  const t = useT();
 
-  const {
-    data: trendingMovies,
-    isLoading: loadingTrending,
-    error: errorTrending,
-    refetch: refetchTrending,
-  } = useTrendingContent('movie');
+  const trending = useTrendingContent('movie');
+  const popular = usePopularContent('tv');
+  const indonesianMovies = useIndonesianContent('movie');
+  const indonesianSeries = useIndonesianContent('tv');
+  const action = useGenreContent('movie', '28');
+  const recommendations = usePersonalRecommendations(Boolean(user));
 
-  const {
-    data: popularTV,
-    isLoading: loadingPopular,
-    error: errorPopular,
-    refetch: refetchPopular,
-  } = usePopularContent('tv');
+  // Admin-curated hero. Falls back to trending[0] when there isn't an
+  // active featured row.
+  const featured = useQuery({
+    queryKey: ['featured-active'],
+    queryFn: () => featuredService.getActive(),
+    staleTime: 1000 * 60 * 5,
+  });
 
-  const hero = trendingMovies && trendingMovies.length > 0 ? trendingMovies[0] : null;
+  // Compose the hero either from the featured row or the trending fallback.
+  const hero = featured.data
+    ? {
+        id: `tmdb:${featured.data.tmdbId}`,
+        type: featured.data.mediaType === 'tv' ? 'series' : 'movie',
+        name: featured.data.title,
+        banner: featured.data.banner || trending.data?.[0]?.banner,
+        description: featured.data.description,
+        badge: featured.data.badge,
+      }
+    : trending.data && trending.data.length > 0
+      ? { ...trending.data[0], badge: undefined as string | undefined }
+      : null;
 
   const handleHeroPlay = () => {
     if (!hero) return;
@@ -107,7 +126,7 @@ export default function HomePage() {
           </div>
         ) : (
           // Show skeleton hero while data loads
-          loadingTrending ? (
+          trending.isLoading ? (
             <div className="absolute inset-0 bg-[#0f0f0f] flex items-center justify-center">
               <ContentCardSkeleton />
             </div>
@@ -121,7 +140,7 @@ export default function HomePage() {
           <div className="space-y-4 animate-slide-up">
             <div className="flex items-center space-x-3 mb-2">
               <div className="px-3 py-1 bg-primary-600/90 backdrop-blur-md rounded-md text-white text-xs font-bold tracking-wider uppercase shadow-lg shadow-primary-900/40">
-                N-Movie Exclusive
+                {hero?.badge ?? 'N-Movie Exclusive'}
               </div>
               <span className="text-gray-300 text-sm font-medium tracking-wide uppercase px-2 border-l border-gray-600">
                 Series
@@ -129,14 +148,14 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 drop-shadow-2xl leading-[0.9] tracking-tight">
-              {hero?.name ?? 'Loading...'}
+              {hero?.name ?? t('common.loading')}
             </h1>
 
             {/* Meta info row */}
             {hero && (
               <div className="flex items-center space-x-6 text-gray-200 text-base font-medium">
                 <div className="flex items-center space-x-2 text-green-400">
-                  <span className="font-bold">98% Match</span>
+                  <span className="font-bold">{t('home.percentMatch', { value: 98 })}</span>
                 </div>
                 <span className="text-gray-400">•</span>
                 <span>2024</span>
@@ -158,7 +177,7 @@ export default function HomePage() {
               className="group flex items-center justify-center px-8 py-4 rounded-xl bg-white text-black font-bold text-lg hover:bg-gray-200 transition-all transform hover:scale-105 shadow-[0_0_20px_rgba(255,255,255,0.3)]"
             >
               <span className="mr-3 text-2xl group-hover:pl-1 transition-all">▶</span>
-              Watch Now
+              {t('home.watchNow')}
             </button>
 
             <button
@@ -166,7 +185,7 @@ export default function HomePage() {
               className="flex items-center justify-center px-8 py-4 rounded-xl bg-white/10 text-white font-semibold text-lg hover:bg-white/20 transition-all border border-white/10 backdrop-blur-xl"
             >
               <span className="mr-3">ℹ️</span>
-              Details
+              {t('home.details')}
             </button>
           </div>
         </div>
@@ -177,102 +196,56 @@ export default function HomePage() {
         {/* Continue Watching - Only show for logged in users */}
         {user && <ContinueWatching />}
 
-        {/* Trending Movies Row */}
-        <div className="space-y-6 relative group/row">
-        <div className="flex items-center justify-between px-2">
-            <h2 className="section-title mb-2 flex items-center gap-3">
-              <span className="w-1.5 h-8 bg-gradient-to-b from-primary-500 to-primary-800 rounded-full shadow-[0_0_15px_rgba(229,9,20,0.5)]"></span>
-              Trending Movies
-            </h2>
-            <button className="text-sm font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider flex items-center gap-2 group/btn">
-              Explore <span className="group-hover/btn:translate-x-1 transition-transform">→</span>
-            </button>
-          </div>
+        {/* Personal recommendations - only when we have results */}
+        {user && recommendations.data && recommendations.data.length > 0 && (
+          <CategoryRow
+            title={t('home.recommended')}
+            data={recommendations.data}
+            isLoading={recommendations.isLoading}
+            error={recommendations.error}
+            onRetry={() => recommendations.refetch()}
+          />
+        )}
 
-          {loadingTrending ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner size="large" />
-            </div>
-          ) : errorTrending ? (
-            <ErrorMessage
-              message="Failed to load trending movies"
-              onRetry={() => refetchTrending()}
-            />
-          ) : (
-            <div className="relative">
-              {/* Left Gradient Mask */}
-              <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#0f0f0f] to-transparent z-10 pointer-events-none opacity-0 group-hover/row:opacity-100 transition-opacity duration-500" />
+        <CategoryRow
+          title={t('home.trendingMovies')}
+          data={trending.data}
+          isLoading={trending.isLoading}
+          error={trending.error}
+          onRetry={() => trending.refetch()}
+        />
 
-              {/* Right Gradient Mask */}
-              <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#0f0f0f] to-transparent z-10 pointer-events-none opacity-0 group-hover/row:opacity-100 transition-opacity duration-500" />
+        <CategoryRow
+          title={t('home.popularTv')}
+          data={popular.data}
+          isLoading={popular.isLoading}
+          error={popular.error}
+          onRetry={() => popular.refetch()}
+        />
 
-              <div className="flex gap-5 overflow-x-auto pb-8 hide-scrollbar scroll-pl-6 px-2">
-                {trendingMovies?.slice(0, 20).map((content, idx) => (
-                  <div
-                    key={content.id}
-                    className="flex-shrink-0 w-[160px] md:w-[220px] transition-all duration-500 ease-out"
-                    style={{ transitionDelay: `${idx * 50}ms` }}
-                  >
-                    <ContentCard content={content} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <CategoryRow
+          title={t('home.indonesianMovies')}
+          data={indonesianMovies.data}
+          isLoading={indonesianMovies.isLoading}
+          error={indonesianMovies.error}
+          onRetry={() => indonesianMovies.refetch()}
+        />
 
-        {/* Popular TV Shows Row */}
-        <div className="space-y-6 relative group/row">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 flex items-center gap-3">
-              <span className="w-1.5 h-8 bg-gradient-to-b from-primary-500 to-primary-800 rounded-full shadow-[0_0_15px_rgba(229,9,20,0.5)]"></span>
-              Popular TV Shows
-            </h2>
-            <button className="text-sm font-bold text-gray-400 hover:text-white transition-colors uppercase tracking-wider flex items-center gap-2 group/btn">
-              Explore <span className="group-hover/btn:translate-x-1 transition-transform">→</span>
-            </button>
-          </div>
+        <CategoryRow
+          title={t('home.indonesianSeries')}
+          data={indonesianSeries.data}
+          isLoading={indonesianSeries.isLoading}
+          error={indonesianSeries.error}
+          onRetry={() => indonesianSeries.refetch()}
+        />
 
-          {loadingPopular ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner size="large" />
-            </div>
-          ) : errorPopular ? (
-            <ErrorMessage
-              message="Failed to load popular TV shows"
-              onRetry={() => refetchPopular()}
-            />
-          ) : (
-            <div className="relative">
-              {/* Left Gradient Mask */}
-              <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#0f0f0f] to-transparent z-10 pointer-events-none opacity-0 group-hover/row:opacity-100 transition-opacity duration-500" />
-
-              {/* Right Gradient Mask */}
-              <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#0f0f0f] to-transparent z-10 pointer-events-none opacity-0 group-hover/row:opacity-100 transition-opacity duration-500" />
-
-              <div className="flex gap-5 overflow-x-auto pb-8 hide-scrollbar scroll-pl-6 px-2">
-                {popularTV?.slice(0, 20).map((content, idx) => (
-                  <div
-                    key={content.id}
-                    className="flex-shrink-0 w-[160px] md:w-[220px] transition-all duration-500 ease-out"
-                    style={{ transitionDelay: `${idx * 50}ms` }}
-                  >
-                    <ContentCard content={content} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Indonesian Movies Row */}
-        <CategoryRow title="Trending in Indonesia" fetcher={useIndonesianContent} mediaType="movie" />
-
-        {/* Indonesian Series Row */}
-        <CategoryRow title="Indonesian Series" fetcher={useIndonesianContent} mediaType="tv" />
-
-        {/* Action Movies Row */}
-        <CategoryRow title="Action Hits" fetcher={(type: 'movie' | 'tv') => useGenreContent(type, '28')} mediaType="movie" />
+        <CategoryRow
+          title={t('home.actionHits')}
+          data={action.data}
+          isLoading={action.isLoading}
+          error={action.error}
+          onRetry={() => action.refetch()}
+        />
       </section>
     </div>
   );

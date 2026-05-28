@@ -1,25 +1,43 @@
 import { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../services/apiClient';
 import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 import { StreamingContent } from '../types/metadata';
 import { StreamingAddon } from '../types/catalog';
+
+export type LibraryCategory = 'WATCHLIST' | 'FAVORITE' | 'WATCHED';
+
+export interface LibraryEntry extends StreamingContent {
+  category: LibraryCategory;
+}
 
 interface CatalogContextProps {
   addons: StreamingAddon[];
   setAddons: (addons: StreamingAddon[]) => void;
-  library: StreamingContent[];
-  addToLibrary: (content: StreamingContent) => Promise<void>;
+  library: LibraryEntry[];
+  addToLibrary: (content: StreamingContent, category?: LibraryCategory) => Promise<void>;
+  setItemCategory: (contentId: string, category: LibraryCategory) => Promise<void>;
   removeFromLibrary: (contentId: string) => Promise<void>;
   isInLibrary: (contentId: string) => boolean;
+  getItemCategory: (contentId: string) => LibraryCategory | null;
   isLoading: boolean;
 }
 
 const CatalogContext = createContext<CatalogContextProps | undefined>(undefined);
 
+interface RawLibraryItem {
+  tmdbId: string;
+  type: string;
+  name: string;
+  poster?: string;
+  category?: LibraryCategory;
+}
+
 export function CatalogProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const toast = useToast();
   const [addons, setAddons] = useState<StreamingAddon[]>([]);
-  const [library, setLibrary] = useState<StreamingContent[]>([]);
+  const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch library on mount or user change
@@ -37,19 +55,15 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/library`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await apiClient.get('/library');
 
-      // Transform backend items to StreamingContent if necessary, 
-      // but backend should return format compatible enough or we map it.
-      // Backend returns LibraryItem model. We need to map it back to StreamingContent-like structure.
-      const mappedLibrary = response.data.map((item: any) => ({
+      // Map backend LibraryItem rows to the StreamingContent shape the UI expects.
+      const mappedLibrary: LibraryEntry[] = response.data.map((item: RawLibraryItem) => ({
         id: item.tmdbId,
         type: item.type,
         name: item.name,
         poster: item.poster,
-        // Add other fields if needed, but these are crucial for display
+        category: item.category ?? 'WATCHLIST',
       }));
 
       setLibrary(mappedLibrary);
@@ -60,56 +74,73 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addToLibrary = async (content: StreamingContent) => {
+  const addToLibrary = async (content: StreamingContent, category: LibraryCategory = 'WATCHLIST') => {
     if (!user) {
-      alert('Please login to add to library');
+      toast.warning('Please login to add to library');
       return;
     }
 
-    // Optimistic update
-    const newItem = { ...content, addedToLibraryAt: Date.now() };
-    setLibrary(prev => [...prev, newItem]);
+    // Optimistic update — replace existing entry for the same id (so a
+    // re-add with a new category moves the item between buckets).
+    const optimistic: LibraryEntry = {
+      ...content,
+      category,
+    } as LibraryEntry;
+    setLibrary((prev) => {
+      const without = prev.filter((item) => item.id !== content.id);
+      return [...without, optimistic];
+    });
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${import.meta.env.VITE_API_URL}/library`, {
+      await apiClient.post('/library', {
         tmdbId: content.id,
         type: content.type,
         name: content.name,
-        poster: content.poster
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
+        poster: content.poster,
+        category,
       });
     } catch (error) {
       console.error('Failed to add to library:', error);
-      // Revert on error
-      setLibrary(prev => prev.filter(item => item.id !== content.id));
-      alert('Failed to save to library');
+      setLibrary((prev) => prev.filter((item) => item.id !== content.id));
+      toast.error('Failed to save to library');
+    }
+  };
+
+  const setItemCategory = async (contentId: string, category: LibraryCategory) => {
+    if (!user) return;
+    const previous = library;
+    setLibrary((prev) =>
+      prev.map((item) => (item.id === contentId ? { ...item, category } : item)),
+    );
+    try {
+      await apiClient.put(`/library/${contentId}`, { category });
+    } catch (error) {
+      console.error('Failed to update library category:', error);
+      setLibrary(previous);
+      toast.error('Failed to update library');
     }
   };
 
   const removeFromLibrary = async (contentId: string) => {
     if (!user) return;
 
-    // Optimistic update
     const previousLibrary = [...library];
-    setLibrary(prev => prev.filter(item => item.id !== contentId));
+    setLibrary((prev) => prev.filter((item) => item.id !== contentId));
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${import.meta.env.VITE_API_URL}/library/${contentId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await apiClient.delete(`/library/${contentId}`);
     } catch (error) {
       console.error('Failed to remove from library:', error);
-      // Revert
       setLibrary(previousLibrary);
-      alert('Failed to remove from library');
+      toast.error('Failed to remove from library');
     }
   };
 
-  const isInLibrary = (contentId: string) => {
-    return library.some((item) => item.id === contentId);
+  const isInLibrary = (contentId: string) => library.some((item) => item.id === contentId);
+
+  const getItemCategory = (contentId: string): LibraryCategory | null => {
+    const found = library.find((item) => item.id === contentId);
+    return found?.category ?? null;
   };
 
   return (
@@ -119,8 +150,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         setAddons,
         library,
         addToLibrary,
+        setItemCategory,
         removeFromLibrary,
         isInLibrary,
+        getItemCategory,
         isLoading,
       }}
     >
@@ -136,4 +169,3 @@ export function useCatalog() {
   }
   return context;
 }
-

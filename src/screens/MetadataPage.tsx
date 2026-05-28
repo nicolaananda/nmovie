@@ -1,22 +1,33 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCatalog } from '../contexts/CatalogContext';
-import { Play, Plus, Check, Star, Lock, Layers, Tv } from 'lucide-react';
-import { useContentDetails, useTVSeasons, useTVEpisodes } from '../hooks/useContent';
+import type { LibraryCategory } from '../contexts/CatalogContext';
+import { Play, Plus, Check, Star, Lock, Layers, Tv, CheckCircle2, Bookmark, Heart } from 'lucide-react';
+import { useContentDetails, useTVSeasons, useTVEpisodes, useSimilarContent } from '../hooks/useContent';
 import { useStreams } from '../hooks/useStreams';
+import { useSeriesProgress } from '../hooks/useSeriesProgress';
+import { useItemProgress } from '../hooks/useItemProgress';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import { subtitleService } from '../services/subtitleService';
 import ContentCard from '../components/ContentCard';
-import { tmdbService } from '../services/tmdbService';
 import type { Subtitle } from '../types/metadata';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { useT } from '../i18n/I18nContext';
+import { stashPlayerPayload } from '../utils/playerPayload';
+import { rememberLastStream } from '../utils/lastStreamCache';
+import { formatTime } from '../utils/formatTime';
 
 export default function MetadataPage() {
   const { type, id } = useParams<{ type: string; id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isInLibrary, addToLibrary, removeFromLibrary } = useCatalog();
+  const { isInLibrary, addToLibrary, removeFromLibrary, getItemCategory, setItemCategory } = useCatalog();
   const { user, isApproved } = useAuth();
+  const toast = useToast();
+  const t = useT();
 
   // Extract TMDB ID from id (format: tmdb:123456)
   const tmdbId = id?.includes(':') ? parseInt(id.split(':')[1]) : parseInt(id || '0');
@@ -25,10 +36,13 @@ export default function MetadataPage() {
 
   const { data: content, isLoading, error, refetch } = useContentDetails(tmdbId, mediaType);
 
-  // For series: fetch seasons and episodes, default to S1E1
+  // For series: fetch seasons and episodes. Default to S1E1 unless the
+  // caller passed `?season=&episode=` (e.g. continue-watching deep links).
   const isSeries = type === 'series';
-  const [selectedSeason, setSelectedSeason] = useState<number>(1);
-  const [selectedEpisode, setSelectedEpisode] = useState<number>(1);
+  const initialSeason = parseInt(searchParams.get('season') || '1') || 1;
+  const initialEpisode = parseInt(searchParams.get('episode') || '1') || 1;
+  const [selectedSeason, setSelectedSeason] = useState<number>(initialSeason);
+  const [selectedEpisode, setSelectedEpisode] = useState<number>(initialEpisode);
   const [activeTab, setActiveTab] = useState<'episodes' | 'sources'>(type === 'series' ? 'episodes' : 'sources');
 
   const { data: seasons } = useTVSeasons(isSeries ? tmdbId : 0);
@@ -54,20 +68,39 @@ export default function MetadataPage() {
 
   const primaryStream = streams && streams.length > 0 ? streams[0] : null;
 
-  // Similar content section
-  const [similar, setSimilar] = useState<any[]>([]);
+  // Per-episode progress map for the watched/in-progress markers in
+  // the episode list. Empty for movies.
+  const seriesProgress = useSeriesProgress(String(tmdbId), isSeries && Boolean(user));
 
-  useEffect(() => {
-    const fetchSimilar = async () => {
-      try {
-        const data = await (tmdbService as any).getSimilar(mediaType, tmdbId);
-        setSimilar(data);
-      } catch (err) {
-        console.error('Error loading similar content', err);
-      }
-    };
-    fetchSimilar();
-  }, [tmdbId, mediaType]);
+  // Progress for the *currently selected* item (movie or specific S/E),
+  // used to drive the Resume banner.
+  const itemProgress = useItemProgress(
+    String(tmdbId),
+    Boolean(user),
+    isSeries ? selectedSeason : undefined,
+    isSeries ? selectedEpisode : undefined,
+  );
+  const resumeAt = itemProgress.data?.progress ?? 0;
+  const resumeDuration = itemProgress.data?.duration ?? 0;
+  const resumeCompleted = itemProgress.data?.completed ?? false;
+  const showResume = resumeAt > 30 && !resumeCompleted;
+  const resumePct = resumeDuration > 0
+    ? Math.min(100, Math.round((resumeAt / resumeDuration) * 100))
+    : 0;
+
+  // Per-route document title + OG tags so link previews on Discord,
+  // WhatsApp, etc. show the actual title and banner instead of the
+  // generic site default.
+  useDocumentMeta({
+    title: content?.name,
+    description: content?.description,
+    image: content?.banner ?? content?.poster,
+    type: isSeries ? 'video.tv_show' : 'video.movie',
+  });
+
+  // Similar content section — cached by react-query so it doesn't refire
+  // on every mount.
+  const { data: similar = [] } = useSimilarContent(mediaType, tmdbId);
 
   // Fetch subtitles (all will be loaded in player)
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
@@ -112,7 +145,7 @@ export default function MetadataPage() {
     }
 
     if (!isApproved) {
-      alert('Your account is pending approval. You cannot play content strictly yet.');
+      toast.warning('Your account is pending approval. Playback unlocks once an admin approves it.');
       return;
     }
 
@@ -120,6 +153,34 @@ export default function MetadataPage() {
       ? `${content.name} - S${selectedSeason}E${selectedEpisode}`
       : content.name;
 
+    // Stash the actual stream payload in sessionStorage so the address
+    // bar shows only an opaque token. Cleaner UX, and the URL no longer
+    // leaks the underlying provider.
+    const playerPayload = {
+      url: streamUrl,
+      type: sourceType === 'embed' ? 'embed' : undefined,
+      title,
+      tmdbId: String(tmdbId),
+      imdbId: content.imdb_id,
+      mediaType: streamType,
+      poster: content.poster,
+      season: isSeries ? selectedSeason : undefined,
+      episode: isSeries ? selectedEpisode : undefined,
+      subtitles: subtitles && subtitles.length > 0 ? subtitles : undefined,
+    };
+
+    // Persist the resolved source so Continue Watching can launch the
+    // player in one click without re-resolving.
+    rememberLastStream(playerPayload);
+
+    const token = stashPlayerPayload(playerPayload);
+
+    if (token) {
+      navigate(`/player?t=${token}`);
+      return;
+    }
+
+    // Fallback to legacy URL-param flow if sessionStorage is unavailable.
     const params = new URLSearchParams({
       url: streamUrl,
       title,
@@ -169,6 +230,18 @@ export default function MetadataPage() {
       }
     }
   };
+
+  const handleCategoryPick = (category: LibraryCategory) => {
+    if (!content) return;
+    if (isInLibrary(content.id)) {
+      setItemCategory(content.id, category);
+    } else {
+      addToLibrary(content, category);
+    }
+    setShowCategoryMenu(false);
+  };
+
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
 
   if (isLoading) {
     return (
@@ -237,6 +310,44 @@ export default function MetadataPage() {
           </div>
 
           <div className="space-y-3">
+            {showResume && (
+              <div className="rounded-xl bg-primary-900/15 border border-primary-500/30 p-3">
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <span className="text-primary-300 font-semibold uppercase tracking-wider">
+                    {isSeries
+                      ? `S${selectedSeason} · E${selectedEpisode}`
+                      : 'Continue'}
+                  </span>
+                  {resumeDuration > 0 && (
+                    <span className="text-gray-400">{resumePct}%</span>
+                  )}
+                </div>
+                {resumeDuration > 0 && (
+                  <div className="h-1 bg-white/10 rounded-full overflow-hidden mb-3">
+                    <div
+                      className="h-full bg-primary-500"
+                      style={{ width: `${resumePct}%` }}
+                    />
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handlePlay}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white text-black text-sm font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    {t('metadata.resume', { time: formatTime(resumeAt) })}
+                  </button>
+                  <button
+                    onClick={handlePlay}
+                    title={t('metadata.startOver')}
+                    className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-xs"
+                  >
+                    {t('metadata.startOver')}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={handlePlay}
               className="w-full flex items-center justify-center space-x-2 px-6 py-4 rounded-xl font-bold text-lg shadow-lg transition-transform hover:scale-[1.02] active:scale-95"
@@ -246,16 +357,66 @@ export default function MetadataPage() {
               }}
             >
               <Play size={24} fill="black" />
-              <span>Play Now</span>
+              <span>{showResume ? t('metadata.startOver') : 'Play Now'}</span>
             </button>
 
-            <button
-              onClick={handleLibraryToggle}
-              className="w-full flex items-center justify-center space-x-2 px-6 py-4 rounded-xl font-bold bg-white/10 border border-white/10 backdrop-blur-md transition-colors hover:bg-white/20"
-            >
-              {inLibrary ? <Check size={20} /> : <Plus size={20} />}
-              <span>{inLibrary ? 'In Library' : 'Add to List'}</span>
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  if (inLibrary) setShowCategoryMenu((v) => !v);
+                  else handleLibraryToggle();
+                }}
+                className="w-full flex items-center justify-center space-x-2 px-6 py-4 rounded-xl font-bold bg-white/10 border border-white/10 backdrop-blur-md transition-colors hover:bg-white/20"
+              >
+                {inLibrary ? <Check size={20} /> : <Plus size={20} />}
+                <span>
+                  {inLibrary
+                    ? (() => {
+                        const c = getItemCategory(content.id);
+                        if (c === 'FAVORITE') return 'Favorited';
+                        if (c === 'WATCHED') return 'Watched';
+                        return 'In Watchlist';
+                      })()
+                    : 'Add to Library'}
+                </span>
+              </button>
+
+              {inLibrary && showCategoryMenu && (
+                <div
+                  className="absolute top-full mt-2 left-0 right-0 bg-[#1a1a1a] border border-white/10 rounded-xl p-1 shadow-2xl z-20"
+                  onMouseLeave={() => setShowCategoryMenu(false)}
+                >
+                  <button
+                    onClick={() => handleCategoryPick('WATCHLIST')}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-white/5"
+                  >
+                    <Bookmark size={14} /> Move to Watchlist
+                  </button>
+                  <button
+                    onClick={() => handleCategoryPick('FAVORITE')}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-white/5"
+                  >
+                    <Heart size={14} /> Mark as Favorite
+                  </button>
+                  <button
+                    onClick={() => handleCategoryPick('WATCHED')}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-white/5"
+                  >
+                    <CheckCircle2 size={14} /> Mark as Watched
+                  </button>
+                  <div className="border-t border-white/5 my-1" />
+                  <button
+                    onClick={() => {
+                      removeFromLibrary(content.id);
+                      setShowCategoryMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10"
+                  >
+                    Remove from Library
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -357,37 +518,67 @@ export default function MetadataPage() {
 
                   <div className="glass-panel rounded-xl overflow-hidden bg-black/20 border border-white/5">
                     <div className="max-h-[600px] overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                      {episodes?.map(ep => (
-                        <button
-                          key={ep.id}
-                          onClick={() => handleEpisodeSelect(selectedSeason, ep.episode_number)}
-                          className={`w-full flex items-center justify-between p-4 rounded-lg transition-all group ${selectedEpisode === ep.episode_number
-                            ? 'bg-primary-900/20 border border-primary-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]'
-                            : 'hover:bg-white/5 border border-transparent'
+                      {episodes?.map(ep => {
+                        const epProgress = seriesProgress.data?.[`s${selectedSeason}e${ep.episode_number}`];
+                        const isWatched = epProgress?.completed === true;
+                        const inProgress = !!epProgress && !isWatched && epProgress.progress > 0;
+                        const pct = epProgress?.duration && epProgress.duration > 0
+                          ? Math.min(100, Math.round((epProgress.progress / epProgress.duration) * 100))
+                          : 0;
+                        const isSelected = selectedEpisode === ep.episode_number;
+                        return (
+                          <button
+                            key={ep.id}
+                            onClick={() => handleEpisodeSelect(selectedSeason, ep.episode_number)}
+                            className={`w-full flex items-center justify-between p-4 rounded-lg transition-all group relative overflow-hidden ${
+                              isSelected
+                                ? 'bg-primary-900/20 border border-primary-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]'
+                                : 'hover:bg-white/5 border border-transparent'
                             }`}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${selectedEpisode === ep.episode_number ? 'bg-primary-500 text-white' : 'bg-white/10 text-gray-400 group-hover:bg-white/20'
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold relative ${
+                                isWatched
+                                  ? 'bg-green-500/20 text-green-400 ring-1 ring-green-500/40'
+                                  : isSelected
+                                  ? 'bg-primary-500 text-white'
+                                  : 'bg-white/10 text-gray-400 group-hover:bg-white/20'
                               }`}>
-                              {ep.episode_number}
-                            </div>
-                            <div className="text-left">
-                              <div className={`font-medium text-sm ${selectedEpisode === ep.episode_number ? 'text-white' : 'text-gray-300'}`}>
-                                {ep.name || `Episode ${ep.episode_number}`}
+                                {isWatched ? <CheckCircle2 size={16} /> : ep.episode_number}
                               </div>
-                              <div className="text-[10px] text-gray-500 mt-0.5">{ep.air_date?.substring(0, 4)}</div>
+                              <div className="text-left">
+                                <div className={`font-medium text-sm ${
+                                  isWatched ? 'text-gray-400' : isSelected ? 'text-white' : 'text-gray-300'
+                                }`}>
+                                  {ep.name || `Episode ${ep.episode_number}`}
+                                </div>
+                                <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-2">
+                                  {ep.air_date?.substring(0, 4)}
+                                  {inProgress && (
+                                    <span className="text-primary-400">{pct}% watched</span>
+                                  )}
+                                  {isWatched && <span className="text-green-400">Watched</span>}
+                                </div>
+                              </div>
                             </div>
-                          </div>
 
-                          {selectedEpisode === ep.episode_number ? (
-                            <div className="flex items-center gap-2 text-primary-400 text-xs font-bold px-3 py-1 rounded-full bg-primary-500/10">
-                              <span>Selected</span>
-                            </div>
-                          ) : (
-                            <Play size={16} className="text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          )}
-                        </button>
-                      ))}
+                            {isSelected ? (
+                              <div className="flex items-center gap-2 text-primary-400 text-xs font-bold px-3 py-1 rounded-full bg-primary-500/10">
+                                <span>Selected</span>
+                              </div>
+                            ) : (
+                              <Play size={16} className="text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            )}
+
+                            {/* Progress bar at the bottom of the row for in-progress episodes */}
+                            {inProgress && (
+                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10">
+                                <div className="h-full bg-primary-500" style={{ width: `${pct}%` }} />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

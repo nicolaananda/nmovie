@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { customSubtitleService, type AdminSubtitle } from '../../services/customSubtitleService';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function CustomSubtitleManager() {
+  const toast = useToast();
   const [subtitles, setSubtitles] = useState<AdminSubtitle[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('PENDING');
@@ -33,12 +35,20 @@ export default function CustomSubtitleManager() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Delete this subtitle?')) return;
+    const ok = await toast.confirm({
+      title: 'Delete subtitle?',
+      message: 'This permanently removes the subtitle file.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await customSubtitleService.adminDelete(id);
       await load();
+      toast.success('Subtitle deleted');
     } catch (e) {
       console.error('Failed to delete', e);
+      toast.error('Failed to delete subtitle');
     }
   };
 

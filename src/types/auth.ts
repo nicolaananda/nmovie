@@ -8,6 +8,8 @@ export interface User {
     subscriptionEndsAt?: string;
     createdAt?: string;
     lastLoginAt?: string;
+    isSupporter?: boolean;
+    supporterSince?: string;
 }
 
 export interface AuthState {
@@ -23,4 +25,6 @@ export interface LoginResponse {
     role: 'USER' | 'ADMIN';
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     token: string;
+    isSupporter?: boolean;
+    subscriptionEndsAt?: string;
 }

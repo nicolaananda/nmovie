@@ -17,9 +17,11 @@ export default function ContentCard({ content }: ContentCardProps) {
   };
 
   return (
-    <div
+    <button
+      type="button"
       onClick={handleClick}
-      className="group relative w-full aspect-[2/3] cursor-pointer rounded-xl overflow-hidden bg-[#181818] shadow-lg transition-all duration-500 hover:shadow-[0_0_30px_rgba(114,14,30,0.6)] hover:scale-105 hover:z-50"
+      aria-label={`View details for ${content.name}`}
+      className="group relative w-full aspect-[2/3] text-left cursor-pointer rounded-xl overflow-hidden bg-[#181818] shadow-lg transition-all duration-500 hover:shadow-[0_0_30px_rgba(114,14,30,0.6)] hover:scale-105 hover:z-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
     >
       {/* Background Image */}
       {content.poster ? (
@@ -74,14 +76,14 @@ export default function ContentCard({ content }: ContentCardProps) {
             </span>
           </div>
 
-          {/* Action Button Hint */}
+          {/* Action Button Hint (purely visual; outer element handles click) */}
           <div className="pt-2">
-            <button className="w-full py-2 rounded-lg bg-white text-black font-bold text-xs hover:bg-gray-200 transition-colors shadow-lg">
+            <span className="block w-full py-2 text-center rounded-lg bg-white text-black font-bold text-xs shadow-lg">
               Watch Now
-            </button>
+            </span>
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 }

@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { watchHistoryService } from '../services/watchHistoryService';
+import { extractPosterPath } from '../utils/posterUrl';
+import {
+  VIDROCK_ORIGIN,
+  VIDROCK_SAVE_INTERVAL_MS,
+  VIDROCK_LOCAL_STORAGE_THROTTLE_MS,
+} from '../constants';
 
 interface VidrockMediaData {
   id: number;
@@ -41,12 +47,13 @@ interface UseVidrockProgressOptions {
   enabled: boolean;
 }
 
-const VIDROCK_ORIGIN = 'https://vidrock.net';
-const SAVE_INTERVAL_MS = 15_000;
+const SAVE_INTERVAL_MS = VIDROCK_SAVE_INTERVAL_MS;
+const LOCAL_STORAGE_THROTTLE_MS = VIDROCK_LOCAL_STORAGE_THROTTLE_MS;
 
 export function useVidrockProgress(options: UseVidrockProgressOptions) {
   const { tmdbId, mediaType, title, poster, season, episode, enabled } = options;
   const lastSaveRef = useRef<number>(0);
+  const lastLocalWriteRef = useRef<number>(0);
   const progressRef = useRef<{ watched: number; duration: number }>({ watched: 0, duration: 0 });
   const [ready, setReady] = useState(!enabled);
 
@@ -79,7 +86,7 @@ export function useVidrockProgress(options: UseVidrockProgressOptions) {
           id: tmdbNum,
           type: vidType,
           title: title || '',
-          poster_path: poster?.replace('https://image.tmdb.org/t/p/w500', '') || '',
+          poster_path: extractPosterPath(poster),
           progress: {
             watched: serverProgress.progress,
             duration: serverProgress.duration || 0,
@@ -159,7 +166,14 @@ export function useVidrockProgress(options: UseVidrockProgressOptions) {
         const media = data.data as VidrockMediaData;
         if (!media?.progress) return;
 
-        localStorage.setItem('vidRockProgress', JSON.stringify(media));
+        // Throttle localStorage writes — vidrock fires MEDIA_DATA multiple
+        // times per second; serializing the payload that often is
+        // wasteful and can pause the main thread.
+        const now = Date.now();
+        if (now - lastLocalWriteRef.current >= LOCAL_STORAGE_THROTTLE_MS) {
+          localStorage.setItem('vidRockProgress', JSON.stringify(media));
+          lastLocalWriteRef.current = now;
+        }
 
         const { watched, duration } = media.progress;
         progressRef.current = { watched, duration };

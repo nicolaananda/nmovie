@@ -7,6 +7,7 @@ router.use(protect); // All library routes are protected
 
 router.get('/', libraryController.getLibrary);
 router.post('/', libraryController.addToLibrary);
+router.put('/:tmdbId', libraryController.updateLibraryItem);
 router.delete('/:tmdbId', libraryController.removeFromLibrary);
 
 module.exports = router;

@@ -133,6 +133,47 @@ exports.getWatchProgress = async (req, res) => {
     }
 };
 
+// Get all per-episode progress for one series.
+// Used by the series detail page to render watched / in-progress markers
+// next to each episode in the list.
+exports.getSeriesProgress = async (req, res) => {
+    try {
+        const { tmdbId } = req.params;
+
+        const rows = await prisma.watchHistory.findMany({
+            where: {
+                userId: req.user.id,
+                tmdbId,
+            },
+            select: {
+                seasonNumber: true,
+                episodeNumber: true,
+                progress: true,
+                duration: true,
+                completed: true,
+                lastWatchedAt: true,
+            },
+        });
+
+        // Return as a map keyed by "sXeY" so the frontend can do an O(1) lookup.
+        const map = {};
+        for (const r of rows) {
+            if (!r.seasonNumber || !r.episodeNumber) continue;
+            map[`s${r.seasonNumber}e${r.episodeNumber}`] = {
+                progress: r.progress,
+                duration: r.duration,
+                completed: r.completed,
+                lastWatchedAt: r.lastWatchedAt,
+            };
+        }
+
+        res.json(map);
+    } catch (error) {
+        logger.error('Get series progress error', { error: error.message, userId: req.user.id });
+        res.status(500).json({ error: 'Failed to fetch series progress' });
+    }
+};
+
 // Clear watch history
 exports.clearWatchHistory = async (req, res) => {
     try {
@@ -144,5 +185,24 @@ exports.clearWatchHistory = async (req, res) => {
     } catch (error) {
         logger.error('Clear watch history error', { error: error.message, userId: req.user.id });
         res.status(500).json({ error: 'Failed to clear watch history' });
+    }
+};
+
+// Remove a single watch history entry by id (must belong to the user).
+exports.removeWatchHistoryEntry = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (!id) return res.status(400).json({ error: 'Invalid id' });
+
+        const existing = await prisma.watchHistory.findUnique({ where: { id } });
+        if (!existing || existing.userId !== req.user.id) {
+            return res.status(404).json({ error: 'Not found' });
+        }
+
+        await prisma.watchHistory.delete({ where: { id } });
+        res.json({ message: 'Removed' });
+    } catch (error) {
+        logger.error('Remove watch history entry error', { error: error.message, userId: req.user.id });
+        res.status(500).json({ error: 'Failed to remove watch history entry' });
     }
 };

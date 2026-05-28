@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+
+# Disallow auth-protected and admin pages from search indexing.
+Disallow: /admin
+Disallow: /admin/
+Disallow: /users/
+Disallow: /profile
+Disallow: /history
+Disallow: /settings
+Disallow: /streams/
+Disallow: /player
+
+Sitemap: https://ghzm.us/sitemap.xml
