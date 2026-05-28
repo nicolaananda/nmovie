@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchContent } from '../hooks/useContent';
@@ -79,9 +80,26 @@ const filtersAreActive = (f: Filters): boolean =>
 
 export default function SearchPage() {
   const t = useT();
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Hydrate state from the URL on first render so deep-links such as
+  // /search?genre=10752 or /search?q=parasite&year=2019 land on a
+  // pre-filtered result set. We treat the URL as the source of truth
+  // for the initial state but don't keep them mirrored — UI changes
+  // update the URL via setSearchParams below.
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get('q') ?? '');
+  const [filters, setFilters] = useState<Filters>(() => {
+    const type = (searchParams.get('type') as ContentType) || DEFAULT_FILTERS.type;
+    const sort = (searchParams.get('sort') as SortKey) || DEFAULT_FILTERS.sort;
+    return {
+      type: ['all', 'movie', 'tv'].includes(type) ? type : DEFAULT_FILTERS.type,
+      year: searchParams.get('year') ?? '',
+      genreId: searchParams.get('genre') ?? '',
+      language: searchParams.get('lang') ?? '',
+      sort,
+    };
+  });
   const [showFilters, setShowFilters] = useState(false);
 
   // Debounce search query
@@ -91,6 +109,23 @@ export default function SearchPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [query]);
+
+  // Mirror state to the URL so the page is shareable and the browser
+  // back-button restores the user's filter state. We only set keys that
+  // differ from the default to keep URLs short.
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (debouncedQuery) next.set('q', debouncedQuery);
+    if (filters.type !== 'all') next.set('type', filters.type);
+    if (filters.year) next.set('year', filters.year);
+    if (filters.genreId) next.set('genre', filters.genreId);
+    if (filters.language) next.set('lang', filters.language);
+    if (filters.sort !== DEFAULT_FILTERS.sort) next.set('sort', filters.sort);
+    setSearchParams(next, { replace: true });
+    // We deliberately exclude `setSearchParams` from deps — it's stable
+    // and including it would re-run on every render in some routers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, filters]);
 
   const hasFilters = useMemo(() => filtersAreActive(filters), [filters]);
   const hasQuery = debouncedQuery.trim().length > 0;
@@ -177,7 +212,7 @@ export default function SearchPage() {
   const clearFilters = () => setFilters(DEFAULT_FILTERS);
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] pt-24 px-6 md:px-16 pb-20 overflow-x-hidden">
+    <div className="min-h-screen bg-[#0f0f0f] pt-24 px-6 md:px-16 pb-32 md:pb-20 overflow-x-hidden">
       {/* Search Header */}
       <div className="max-w-7xl mx-auto mb-6 animate-fade-in">
         <div className="relative group">

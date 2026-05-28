@@ -313,7 +313,7 @@ export default function MetadataPage() {
   const inLibrary = isInLibrary(content.id);
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] text-gray-100 font-sans pb-20 relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#0f0f0f] text-gray-100 font-sans pb-32 md:pb-20 relative overflow-x-hidden">
       {/* IMMERSIVE BACKGROUND */}
       <div className="fixed inset-0 z-0">
         {content.banner || content.poster ? (

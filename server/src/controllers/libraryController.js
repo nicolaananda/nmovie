@@ -12,15 +12,34 @@ exports.getLibrary = async (req, res) => {
     try {
         // Optional `?category=WATCHLIST|FAVORITE|WATCHED` filter. Without
         // it we return everything, sorted newest first.
+        //
+        // Resilience: when the `category` column doesn't exist yet (the
+        // migration hasn't been deployed), Prisma raises P2022 on the
+        // filter or on the SELECT. We retry without the column so the
+        // page still loads.
         const category = normalizeCategory(req.query.category);
-        const library = await prisma.libraryItem.findMany({
-            where: {
-                userId: req.user.id,
-                ...(category ? { category } : {}),
-            },
-            orderBy: { addedAt: 'desc' },
-        });
-        res.json(library);
+        try {
+            const library = await prisma.libraryItem.findMany({
+                where: {
+                    userId: req.user.id,
+                    ...(category ? { category } : {}),
+                },
+                orderBy: { addedAt: 'desc' },
+            });
+            return res.json(library);
+        } catch (error) {
+            if (error?.code === 'P2022') {
+                console.warn('libraryItem.category column missing, falling back to legacy query');
+                const library = await prisma.$queryRaw`
+                    SELECT id, "userId", "tmdbId", "type", "name", "poster", "addedAt"
+                    FROM "LibraryItem"
+                    WHERE "userId" = ${req.user.id}
+                    ORDER BY "addedAt" DESC
+                `;
+                return res.json(library);
+            }
+            throw error;
+        }
     } catch (error) {
         console.error('Get library error:', error);
         res.status(500).json({ message: 'Server error' });

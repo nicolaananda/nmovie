@@ -131,3 +131,37 @@ img {
 .caption-text {
   @apply text-xs text-gray-500;
 }
+
+/*
+ * Fullscreen player container.
+ *
+ * When the embed wrapper enters fullscreen via Element.requestFullscreen(),
+ * browsers give it the viewport size, but the iframe inside still has
+ * `position: absolute; top: 0; left: 0; w-full; h-full` rules that can
+ * leak past the viewport (vidrock's nested iframes set odd inline sizes).
+ * We pin the wrapper and its descendants to the exact viewport dimensions
+ * and hide overflow so no scroll bar appears in fullscreen.
+ *
+ * Also hides the page scroll bars under html/body for the duration.
+ */
+:fullscreen,
+:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+}
+
+:fullscreen iframe,
+:-webkit-full-screen iframe {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+html:has(:fullscreen),
+html:has(:-webkit-full-screen) {
+  overflow: hidden !important;
+}

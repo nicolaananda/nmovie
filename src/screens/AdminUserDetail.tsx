@@ -114,7 +114,7 @@ export default function AdminUserDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] pt-24 px-4 md:px-8 pb-20 text-white">
+    <div className="min-h-screen bg-[#0f0f0f] pt-24 px-4 md:px-8 pb-32 md:pb-20 text-white">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="p-6 bg-white/5 rounded-xl shadow-md">
           <div className="flex items-center gap-4">

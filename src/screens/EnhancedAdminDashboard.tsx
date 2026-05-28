@@ -229,7 +229,7 @@ export default function EnhancedAdminDashboard() {
     );
   }
   return (
-    <div className="min-h-screen bg-[#0f0f0f] pt-24 px-4 md:px-8 pb-20">
+    <div className="min-h-screen bg-[#0f0f0f] pt-24 px-4 md:px-8 pb-32 md:pb-20">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

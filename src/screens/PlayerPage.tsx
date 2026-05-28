@@ -630,17 +630,19 @@ export default function PlayerPage() {
                     className="w-full h-full border-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                     allowFullScreen
-                    // Sandbox tokens here are deliberately narrow:
-                    //  - allow-scripts        : vidrock's player needs JS
-                    //  - allow-same-origin    : its CDN needs same-origin XHR
-                    //  - allow-presentation   : Cast / Picture-in-Picture
-                    //  - allow-forms          : sub-source selectors etc.
-                    // We intentionally do NOT include allow-popups or
-                    // allow-top-navigation, which blocks the random ad
-                    // pop-ups some embed providers try to spawn via
-                    // window.open() / location.href.
-                    sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
-                    referrerPolicy="no-referrer"
+                    // We deliberately don't set a `sandbox` attribute.
+                    //
+                    // Vidrock loads its actual video stream via deeply
+                    // nested iframes (cloudnestra, vidsrcme, ...) and
+                    // does cross-origin XHR to its own API. Any sandbox
+                    // narrower than "all permissions" reliably breaks
+                    // playback on at least one of those layers, and
+                    // there is no stable subset of tokens that keeps
+                    // them all working as the upstream rotates hosts.
+                    //
+                    // The host is still pinned by the EMBED_HOST_ALLOWLIST
+                    // check above, so a malicious URL cannot reach this
+                    // iframe in the first place.
                     style={{ position: 'absolute', top: 0, left: 0 }}
                     onLoad={() => {
                       setIframeLoaded(true);

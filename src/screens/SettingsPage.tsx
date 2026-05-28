@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const { currentTheme, availableThemes, setCurrentTheme } = useTheme();
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] pt-28 px-6 md:px-16 pb-20 max-w-5xl mx-auto">
+    <div className="min-h-screen bg-[#0f0f0f] pt-28 px-6 md:px-16 pb-32 md:pb-20 max-w-5xl mx-auto">
       <h1 className="text-4xl md:text-5xl font-black text-white mb-2">{t('settings.title')}</h1>
       <p className="text-gray-400 mb-12">{t('settings.subtitle')}</p>
 

@@ -38,7 +38,7 @@ export default function LibraryPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] pt-28 px-6 md:px-16 pb-20">
+    <div className="min-h-screen bg-[#0f0f0f] pt-28 px-6 md:px-16 pb-32 md:pb-20">
       <div className="mb-8">
         <h1 className="text-4xl md:text-5xl font-black text-white mb-2">{t('library.title')}</h1>
         <p className="text-gray-400">{t('library.emptyDesc')}</p>

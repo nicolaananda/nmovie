@@ -9,6 +9,11 @@ const logger = require('../utils/logger');
  * (endsAt may be null = no end). When multiple rows match we prefer
  * the most recently created one so admins can simply add a new entry
  * to override.
+ *
+ * Resilience: when the FeaturedContent table doesn't exist yet
+ * (migration not run), or its `isSupporter` shape is older than the
+ * deployed code, we return null so the homepage falls back to the
+ * trending row instead of surfacing a noisy 500.
  */
 exports.getActiveFeatured = async (_req, res) => {
     try {
@@ -26,6 +31,14 @@ exports.getActiveFeatured = async (_req, res) => {
         });
         res.json(item);
     } catch (error) {
+        // P2021 = table does not exist; P2022 = column does not exist.
+        // Both happen when prisma migrate deploy hasn't run yet.
+        if (error?.code === 'P2021' || error?.code === 'P2022') {
+            logger.warn('Featured table/column missing, returning null', {
+                code: error.code,
+            });
+            return res.json(null);
+        }
         logger.error('getActiveFeatured error', { error: error.message });
         res.status(500).json({ error: 'Failed to fetch featured content' });
     }

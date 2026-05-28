@@ -16,12 +16,20 @@ export const VIDROCK_ORIGIN = 'https://vidrock.net';
 /**
  * Hosts allowed to be loaded inside the embed iframe player.
  *
+ * Vidrock has rotated TLDs in the past (`.net`, `.ru`, `.to`, ...).
+ * We list every variant we've seen so the allowlist isn't an outage
+ * vector when they switch.
+ *
  * The PlayerPage rejects any `type=embed` URL whose host isn't on this
  * list, including subdomain matches. Direct stream URLs (mp4/m3u8) are
  * not bound to this list since they're served over CDNs we don't
  * control, but they're still required to be https.
  */
-export const EMBED_HOST_ALLOWLIST = ['vidrock.net'] as const;
+export const EMBED_HOST_ALLOWLIST = [
+  'vidrock.net',
+  'vidrock.ru',
+  'vidrock.to',
+] as const;
 
 /**
  * Returns true if the URL is acceptable to load in our player.

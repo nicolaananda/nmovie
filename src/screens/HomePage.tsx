@@ -77,11 +77,14 @@ export default function HomePage() {
   const recommendations = usePersonalRecommendations(Boolean(user));
 
   // Admin-curated hero. Falls back to trending[0] when there isn't an
-  // active featured row.
+  // active featured row, or when the endpoint is unavailable (e.g. the
+  // FeaturedContent migration hasn't been deployed yet). We disable the
+  // retry so a single 500 doesn't spam the network tab.
   const featured = useQuery({
     queryKey: ['featured-active'],
     queryFn: () => featuredService.getActive(),
     staleTime: 1000 * 60 * 5,
+    retry: false,
   });
 
   // Compose the hero either from the featured row or the trending fallback.
@@ -109,7 +112,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] pb-20 overflow-x-hidden">
+    <div className="min-h-screen bg-[#0f0f0f] pb-32 md:pb-20 overflow-x-hidden">
       {/* PARALLAX HERO SECTION */}
       <section className="relative h-[95vh] w-full overflow-hidden">
         {hero && hero.banner ? (

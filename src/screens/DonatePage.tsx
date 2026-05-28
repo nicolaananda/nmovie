@@ -16,7 +16,7 @@ export default function DonatePage() {
   const platforms = DONATION_PLATFORMS.filter((p) => p.url);
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] pt-24 pb-20 px-6 md:px-16">
+    <div className="min-h-screen bg-[#0f0f0f] pt-24 pb-32 md:pb-20 px-6 md:px-16">
       <div className="max-w-3xl mx-auto">
         {/* Hero */}
         <div className="text-center mb-12">

@@ -27,6 +27,13 @@ describe('isAllowedPlayerUrl', () => {
       expect(isAllowedPlayerUrl('https://vidrock.net/movie/1', 'embed')).toBe(true);
     });
 
+    it('accepts vidrock TLD variants', () => {
+      // Vidrock has rotated TLDs in the past; the allowlist tracks all
+      // known variants so we don't break when they switch.
+      expect(isAllowedPlayerUrl('https://vidrock.ru/movie/1', 'embed')).toBe(true);
+      expect(isAllowedPlayerUrl('https://vidrock.to/movie/1', 'embed')).toBe(true);
+    });
+
     it('accepts subdomains of vidrock.net', () => {
       expect(isAllowedPlayerUrl('https://www.vidrock.net/movie/1', 'embed')).toBe(true);
       expect(isAllowedPlayerUrl('https://api.vidrock.net/movie/1', 'embed')).toBe(true);
