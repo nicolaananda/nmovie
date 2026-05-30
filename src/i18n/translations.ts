@@ -143,6 +143,10 @@ const id: Dict = {
   'auth.pendingApproval': 'Akunmu masih menunggu persetujuan. Pemutaran terbuka setelah disetujui admin.',
   'auth.loginRequired': 'Silakan masuk untuk menambahkan ke koleksi',
 
+  // Copyright
+  'copyright.indonesianTitle': 'Konten Indonesia tidak tersedia',
+  'copyright.indonesianDesc': 'Karena alasan hak cipta, film dan serial Indonesia tidak bisa diputar di sini. Kamu masih bisa melihat detailnya, tapi tombol putar dinonaktifkan.',
+
   // Toast / errors
   'error.generic': 'Terjadi kesalahan',
   'error.failedToSave': 'Gagal menyimpan',
@@ -297,6 +301,10 @@ const en: Dict = {
   // Auth
   'auth.pendingApproval': 'Your account is pending approval. Playback unlocks once an admin approves it.',
   'auth.loginRequired': 'Please login to add to library',
+
+  // Copyright
+  'copyright.indonesianTitle': 'Indonesian content unavailable',
+  'copyright.indonesianDesc': 'Due to copyright restrictions, Indonesian movies and series cannot be played here. You can still browse details, but the play button is disabled.',
 
   // Toast / errors
   'error.generic': 'Something went wrong',

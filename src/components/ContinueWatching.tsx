@@ -129,38 +129,40 @@ export default function ContinueWatching() {
                                     </div>
                                 )}
 
-                                {/* Progress Bar */}
-                                {item.duration && item.progress > 0 && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/20">
-                                        <div
-                                            className="h-full bg-primary-500"
-                                            style={{
-                                                width: `${Math.min((item.progress / item.duration) * 100, 100)}%`,
-                                            }}
-                                        />
-                                    </div>
-                                )}
+                                {(() => {
+                                    const pct = item.duration && item.duration > 0
+                                        ? Math.round((item.progress / item.duration) * 100)
+                                        : 0;
+                                    const hasMeaningfulProgress = pct >= 1;
+                                    if (!hasMeaningfulProgress) return null;
+                                    return (
+                                        <>
+                                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/20">
+                                                <div
+                                                    className="h-full bg-primary-500"
+                                                    style={{ width: `${Math.min(pct, 100)}%` }}
+                                                />
+                                            </div>
+                                            <div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+                                                {pct}%
+                                            </div>
+                                        </>
+                                    );
+                                })()}
 
                                 {/* Play Overlay */}
                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <Play size={48} className="text-white" fill="white" />
                                 </div>
-
-                                {/* Progress Percentage */}
-                                {item.duration && (
-                                    <div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
-                                        {Math.round((item.progress / item.duration) * 100)}%
-                                    </div>
-                                )}
                             </div>
 
                             <div className="mt-2">
                                 <h3 className="text-white text-sm font-medium line-clamp-2">{item.name}</h3>
-                                {item.seasonNumber && item.episodeNumber && (
+                                {item.seasonNumber && item.episodeNumber ? (
                                     <p className="text-gray-400 text-xs mt-1">
                                         S{item.seasonNumber} E{item.episodeNumber}
                                     </p>
-                                )}
+                                ) : null}
                             </div>
                         </button>
                     </div>

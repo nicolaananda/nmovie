@@ -146,6 +146,7 @@ class TMDBService {
       runtime: item.runtime ? `${item.runtime} min` : undefined,
       released: item.release_date || item.first_air_date,
       imdb_id: imdbId,
+      originalLanguage: item.original_language,
     };
   }
 }

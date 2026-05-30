@@ -141,6 +141,7 @@ export interface StreamingContent {
   certification?: string;
   country?: string;
   writer?: string[];
+  originalLanguage?: string;
   links?: Array<{
     name: string;
     category: string;

@@ -172,14 +172,19 @@ export default function MetadataPage() {
     loadSubtitles();
   }, [content?.imdb_id, streamType, isSeries, selectedSeason, selectedEpisode]);
 
+  const isCopyrightBlocked = content?.originalLanguage === 'id';
+
   const handlePlay = () => {
     if (!content) return;
 
-    // If streams are available, use primary stream
+    if (isCopyrightBlocked) {
+      toast.warning(t('copyright.indonesianDesc'));
+      return;
+    }
+
     if (primaryStream?.url) {
       handlePlayStream(primaryStream.url, primaryStream.type);
     } else {
-      // Show message if no streams available
       console.warn('[MetadataPage] No streams available to play');
     }
   };
@@ -194,6 +199,11 @@ export default function MetadataPage() {
 
     if (!isApproved) {
       toast.warning('Your account is pending approval. Playback unlocks once an admin approves it.');
+      return;
+    }
+
+    if (isCopyrightBlocked) {
+      toast.warning(t('copyright.indonesianDesc'));
       return;
     }
 
@@ -358,7 +368,21 @@ export default function MetadataPage() {
           </div>
 
           <div className="space-y-3">
-            {showResume && (
+            {isCopyrightBlocked && (
+              <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/30 p-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <Lock size={14} className="text-yellow-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-yellow-300 font-semibold">{t('copyright.indonesianTitle')}</p>
+                    <p className="text-yellow-200/80 text-xs mt-1 leading-relaxed">
+                      {t('copyright.indonesianDesc')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showResume && !isCopyrightBlocked && (
               <div className="rounded-xl bg-primary-900/15 border border-primary-500/30 p-3">
                 <div className="flex items-center justify-between text-xs mb-2">
                   <span className="text-primary-300 font-semibold uppercase tracking-wider">
@@ -398,14 +422,21 @@ export default function MetadataPage() {
 
             <button
               onClick={handlePlay}
-              className="w-full flex items-center justify-center space-x-2 px-6 py-4 rounded-xl font-bold text-lg shadow-lg transition-transform hover:scale-[1.02] active:scale-95"
+              disabled={isCopyrightBlocked}
+              className="w-full flex items-center justify-center space-x-2 px-6 py-4 rounded-xl font-bold text-lg shadow-lg transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
               style={{
-                backgroundColor: '#ffffff',
-                color: '#000000'
+                backgroundColor: isCopyrightBlocked ? '#3a3a3a' : '#ffffff',
+                color: isCopyrightBlocked ? '#9ca3af' : '#000000',
               }}
             >
-              <Play size={24} fill="black" />
-              <span>{showResume ? t('metadata.startOver') : 'Play Now'}</span>
+              {isCopyrightBlocked ? <Lock size={24} /> : <Play size={24} fill="black" />}
+              <span>
+                {isCopyrightBlocked
+                  ? t('copyright.indonesianTitle')
+                  : showResume
+                    ? t('metadata.startOver')
+                    : 'Play Now'}
+              </span>
             </button>
 
             <div className="relative">
@@ -547,7 +578,7 @@ export default function MetadataPage() {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <h3 className="text-xl font-bold text-white">Season {selectedSeason}</h3>
                     {seasons && seasons.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto md:max-w-[70%] custom-scrollbar justify-start md:justify-end">
+                      <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto md:max-w-[70%] custom-scrollbar justify-start">
                         {seasons.filter(s => s.season_number > 0).map(s => (
                           <button
                             key={s.id}

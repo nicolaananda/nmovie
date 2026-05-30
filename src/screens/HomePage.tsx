@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useTrendingContent, usePopularContent, useIndonesianContent, useGenreContent } from '../hooks/useContent';
+import { useTrendingContent, usePopularContent, useGenreContent } from '../hooks/useContent';
 import { usePersonalRecommendations } from '../hooks/useRecommendations';
 import { useAuth } from '../contexts/AuthContext';
 import { useT } from '../i18n/I18nContext';
@@ -71,8 +71,6 @@ export default function HomePage() {
 
   const trending = useTrendingContent('movie');
   const popular = usePopularContent('tv');
-  const indonesianMovies = useIndonesianContent('movie');
-  const indonesianSeries = useIndonesianContent('tv');
   const action = useGenreContent('movie', '28');
   const recommendations = usePersonalRecommendations(Boolean(user));
 
@@ -227,22 +225,6 @@ export default function HomePage() {
         />
 
         <CategoryRow
-          title={t('home.indonesianMovies')}
-          data={indonesianMovies.data}
-          isLoading={indonesianMovies.isLoading}
-          error={indonesianMovies.error}
-          onRetry={() => indonesianMovies.refetch()}
-        />
-
-        <CategoryRow
-          title={t('home.indonesianSeries')}
-          data={indonesianSeries.data}
-          isLoading={indonesianSeries.isLoading}
-          error={indonesianSeries.error}
-          onRetry={() => indonesianSeries.refetch()}
-        />
-
-        <CategoryRow
           title={t('home.actionHits')}
           data={action.data}
           isLoading={action.isLoading}
@@ -253,3 +235,4 @@ export default function HomePage() {
     </div>
   );
 }
+
