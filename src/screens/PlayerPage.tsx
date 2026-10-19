@@ -1,4 +1,3 @@
-import ShareMovie from '../components/ShareMovie';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactPlayer from 'react-player';
@@ -762,7 +761,6 @@ export default function PlayerPage() {
           </div>
         )}
       </div>
-      {tmdbId && !cssFull && <div className="p-4"><ShareMovie type={mediaType} id={tmdbId} title={title} /></div>}
     </div>
   );
 }
