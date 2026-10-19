@@ -1,0 +1,11 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync('src/screens/PlayerPage.tsx', 'utf8');
+const handler = source.match(/const handleFullscreenChange = \(\) => \{([\s\S]*?)\n    \};/)[1];
+let exits = 0, locked = false;
+const document = { fullscreenElement: { tagName: 'IFRAME' }, exitFullscreen() { exits++; return Promise.resolve(); } };
+vm.runInNewContext(handler, { document, embedContainerRef: { current: { requestFullscreen() {} } }, lockScroll() { locked = true; }, unlockScroll() { locked = false; }, setCssFull() {} });
+assert.equal(exits, 0, 'Native iframe fullscreen must not be cancelled');
+assert.equal(locked, true);
+console.log('Fullscreen regression PASS');

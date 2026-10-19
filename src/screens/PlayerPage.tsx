@@ -1,3 +1,4 @@
+import ShareMovie from '../components/ShareMovie';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import ReactPlayer from 'react-player';
@@ -314,8 +315,7 @@ export default function PlayerPage() {
     return () => { document.title = prev; };
   }, [title]);
 
-  // Intercept fullscreen: if iframe goes fullscreen, switch to container
-  // fullscreen. While anything is fullscreen, we also lock scrolling on
+  // Preserve native iframe fullscreen. While anything is fullscreen, lock scrolling on
   // both <html> and <body> so Safari doesn't render its overlay scroll
   // bars next to the player. (Chromium hides them automatically; Safari
   // doesn't unless body is explicitly locked.)
@@ -332,14 +332,6 @@ export default function PlayerPage() {
     };
 
     const handleFullscreenChange = () => {
-      const fsEl = document.fullscreenElement;
-      if (fsEl && fsEl.tagName === 'IFRAME' && embedContainerRef.current) {
-        document.exitFullscreen().then(() => {
-          embedContainerRef.current?.requestFullscreen();
-        }).catch(() => {
-          setCssFull(true);
-        });
-      }
       if (document.fullscreenElement) {
         lockScroll();
       } else {
@@ -770,6 +762,7 @@ export default function PlayerPage() {
           </div>
         )}
       </div>
+      {tmdbId && !cssFull && <div className="p-4"><ShareMovie type={mediaType} id={tmdbId} title={title} /></div>}
     </div>
   );
 }

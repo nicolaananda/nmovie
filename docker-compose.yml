@@ -28,6 +28,7 @@ services:
       context: ./server
       dockerfile: Dockerfile
     container_name: nmovie_backend
+    command: ["node", "src/server.js"]
     restart: unless-stopped
     ports:
       - "7001:7001"
@@ -38,6 +39,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change_me_please_use_openssl_rand_base64_32}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://ghzm.us,https://www.ghzm.us,http://localhost:7781}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      TMDB_API_KEY: ${VITE_TMDB_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

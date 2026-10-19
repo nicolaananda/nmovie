@@ -1,3 +1,4 @@
+import ShareMovie from '../components/ShareMovie';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCatalog } from '../contexts/CatalogContext';
 import type { LibraryCategory } from '../contexts/CatalogContext';
@@ -367,6 +368,7 @@ export default function MetadataPage() {
             )}
           </div>
 
+          <ShareMovie type={type || "movie"} id={String(tmdbId)} title={content.name} />
           <div className="space-y-3">
             {isCopyrightBlocked && (
               <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/30 p-3 text-sm">

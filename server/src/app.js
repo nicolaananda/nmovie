@@ -42,6 +42,8 @@ app.use((req, res, next) => {
 // Apply rate limiting
 app.use('/api/', apiLimiter);
 
+app.get('/metadata/:type/:id', require('./seo').metadataPage);
+
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

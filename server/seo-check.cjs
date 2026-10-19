@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict');
+const { renderMeta } = require('./src/seo');
+const html = renderMeta('<head><title>Old</title><meta name="description" content="old"></head>', { title: 'Film <test>', overview: 'A "story"', poster_path: '/poster.jpg' }, '/metadata/movie/123', 'movie');
+assert(html.includes('Film &lt;test&gt; | N-Movie'));
+assert(html.includes('property="og:image"'));
+assert(html.includes('name="twitter:card"'));
+assert(html.includes('rel="canonical"'));
+assert(!html.includes('<title>Old'));
+assert(!html.includes('<test>'));
+console.log('SEO regression PASS');
