@@ -16,6 +16,7 @@ import {
 import SubscriptionPlanManager from '../components/admin/SubscriptionPlanManager';
 import CustomSubtitleManager from '../components/admin/CustomSubtitleManager';
 import FeaturedManager from '../components/admin/FeaturedManager';
+import WorkInbox from '../components/admin/WorkInbox';
 import { BarChart, HorizontalBars } from '../components/admin/Charts';
 import { useToast } from '../contexts/ToastContext';
 
@@ -136,6 +137,7 @@ export default function EnhancedAdminDashboard() {
 
   const filteredUsers = useMemo(() => {
     let list = [...users] as any[];
+    if (statusFilter) list = list.filter(u=>u.status === statusFilter);
     // Role filter
     if (roleFilter) list = list.filter((u) => (u as any).role === roleFilter);
     // Subscription filter
@@ -169,7 +171,7 @@ export default function EnhancedAdminDashboard() {
         break;
     }
     return list as User[];
-  }, [users, roleFilter, subscriptionFilter, createdAfter, createdBefore, sortOption]);
+  }, [users, statusFilter, roleFilter, subscriptionFilter, createdAfter, createdBefore, sortOption]);
 
   const toggleSelection = (id: number) => {
     setSelectedUserIds((prev) => {
@@ -232,7 +234,7 @@ export default function EnhancedAdminDashboard() {
     <div className="min-h-screen bg-[#0f0f0f] pt-24 px-4 md:px-8 pb-32 md:pb-20">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex flex-wrap items-center gap-4 mb-8">
           <Shield size={32} className="text-primary-500" />
           <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
           <div className="ml-auto flex items-center gap-3 text-sm text-gray-300">
@@ -268,6 +270,7 @@ export default function EnhancedAdminDashboard() {
           </div>
         )}
 
+        <WorkInbox onUsers={()=>{setActiveTab("users");setStatusFilter("PENDING");}} onSubtitles={()=>setActiveTab("subtitles")} />
         {/* Tabs */}
         <div className="flex gap-2 mb-8 overflow-x-auto">
           {tabs.map(({ id, label, icon: Icon }) => (

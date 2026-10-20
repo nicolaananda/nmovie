@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, X, Check } from 'lucide-react';
 import { notificationService, Notification } from '../services/notificationService';
 import { useAuth } from '../contexts/AuthContext';
@@ -85,7 +86,7 @@ export default function NotificationBell() {
                         className="fixed inset-0 z-40"
                         onClick={() => setIsOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-96 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl z-50 max-h-[600px] overflow-hidden flex flex-col">
+                    <div className="absolute right-0 mt-2 w-[min(24rem,calc(100vw-2rem))] bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl z-50 max-h-[600px] overflow-hidden flex flex-col">
                         <div className="p-4 border-b border-white/10 flex items-center justify-between">
                             <h3 className="text-white font-semibold">Notifications</h3>
                             {unreadCount > 0 && (
@@ -127,6 +128,7 @@ export default function NotificationBell() {
                                                     <p className="text-gray-400 text-sm">
                                                         {notification.message}
                                                     </p>
+                                                    {notification.href?.startsWith("/metadata/") && <Link className="text-sm underline" to={notification.href} onClick={()=>{setIsOpen(false);if(!notification.isRead)handleMarkAsRead(notification.id);}}>Lihat episode →</Link>}
                                                     <p className="text-gray-600 text-xs mt-2">
                                                         {new Date(notification.createdAt).toLocaleString()}
                                                     </p>

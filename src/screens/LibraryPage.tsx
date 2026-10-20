@@ -12,13 +12,14 @@ type CategoryTab = 'all' | LibraryCategory;
 type TypeTab = 'all' | 'movie' | 'tv';
 
 export default function LibraryPage() {
-  const { library, isLoading } = useCatalog();
+  const { library, isLoading, setItemCategory } = useCatalog();
+  const [sort, setSort] = useState("newest");
   const t = useT();
   const [categoryTab, setCategoryTab] = useState<CategoryTab>('all');
   const [typeTab, setTypeTab] = useState<TypeTab>('all');
 
   const counts = useMemo(() => {
-    const c = { all: library.length, WATCHLIST: 0, FAVORITE: 0, WATCHED: 0 };
+    const c = { all: library.length, WATCHLIST: 0, FAVORITE: 0, WATCHED: 0, WATCHING: 0, DROPPED: 0 };
     for (const item of library) c[item.category]++;
     return c;
   }, [library]);
@@ -28,12 +29,14 @@ export default function LibraryPage() {
     if (typeTab === 'movie' && item.type !== 'movie') return false;
     if (typeTab === 'tv' && item.type !== 'series') return false;
     return true;
-  });
+  }).sort((a,b) => sort === "name" ? a.name.localeCompare(b.name) : (b.addedToLibraryAt || 0)-(a.addedToLibraryAt || 0));
 
   const categoryTabs: Array<{ id: CategoryTab; label: string; icon: typeof Library; count: number }> = [
     { id: 'all', label: t('library.allItems'), icon: Library, count: counts.all },
     { id: 'WATCHLIST', label: t('library.watchlist'), icon: Bookmark, count: counts.WATCHLIST },
     { id: 'FAVORITE', label: t('library.favorites'), icon: Heart, count: counts.FAVORITE },
+    { id: 'WATCHING', label: 'Sedang ditonton', icon: Film, count: counts.WATCHING },
+    { id: 'DROPPED', label: 'Berhenti', icon: Bookmark, count: counts.DROPPED },
     { id: 'WATCHED', label: t('library.watched'), icon: CheckCircle2, count: counts.WATCHED },
   ];
 
@@ -97,6 +100,7 @@ export default function LibraryPage() {
         })}
       </div>
 
+      <label className="block text-gray-300 mb-6">Urutkan <select className="bg-zinc-900 p-2 rounded" value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">Terakhir ditambahkan</option><option value="name">Judul A–Z</option></select></label>
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 animate-slide-up">
           {Array.from({ length: 8 }).map((_, idx) => (
@@ -108,6 +112,7 @@ export default function LibraryPage() {
           {filtered.map((item) => (
             <div key={item.id} className="transition-transform duration-300 hover:-translate-y-2">
               <ContentCard content={item} />
+              <select aria-label={`Status ${item.name}`} className="w-full bg-zinc-900 text-white text-sm p-2 rounded mt-2" value={item.category} onChange={e=>setItemCategory(item.id,e.target.value as LibraryCategory)}>{categoryTabs.filter(t=>t.id !== "all").map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select>
             </div>
           ))}
         </div>

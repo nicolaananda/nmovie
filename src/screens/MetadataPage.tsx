@@ -1,4 +1,5 @@
 import ShareMovie from '../components/ShareMovie';
+import ContentActions from '../components/ContentActions';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCatalog } from '../contexts/CatalogContext';
 import type { LibraryCategory } from '../contexts/CatalogContext';
@@ -369,6 +370,14 @@ export default function MetadataPage() {
           </div>
 
           <ShareMovie type={type || "movie"} id={String(tmdbId)} title={content.name} />
+          <div className="space-y-2 text-sm text-gray-300">
+            {content.runtime && <p>Durasi: {content.runtime}</p>}
+            {content.status && <p>Status: {content.status}</p>}
+            {content.nextEpisode?.air_date && <p>Episode berikutnya: S{content.nextEpisode.season_number}E{content.nextEpisode.episode_number} · {content.nextEpisode.air_date} (jadwal TMDB, dapat berubah)</p>}
+            {content.trailerStreams?.[0] && <a className="inline-block underline text-white" target="_blank" rel="noopener noreferrer" href={`https://www.youtube.com/watch?v=${content.trailerStreams[0].key}`}>Tonton trailer ↗</a>}
+            <p>{isCopyrightBlocked ? 'Pemutaran judul ini dibatasi.' : loadingStreams ? 'Sedang mencari sumber…' : streams?.length ? `${streams.length} sumber tercantum. Pemutaran dan kualitas belum diverifikasi.` : 'Belum ada sumber ditemukan. Judul katalog tidak menjamin bisa diputar.'}</p>
+          </div>
+          <ContentActions key={content.id} content={content} season={isSeries ? selectedSeason : undefined} episode={isSeries ? selectedEpisode : undefined} />
           <div className="space-y-3">
             {isCopyrightBlocked && (
               <div className="rounded-xl bg-yellow-500/10 border border-yellow-500/30 p-3 text-sm">
@@ -456,6 +465,8 @@ export default function MetadataPage() {
                         const c = getItemCategory(content.id);
                         if (c === 'FAVORITE') return 'Favorited';
                         if (c === 'WATCHED') return 'Watched';
+                        if (c === 'WATCHING') return 'Sedang ditonton';
+                        if (c === 'DROPPED') return 'Berhenti';
                         return 'In Watchlist';
                       })()
                     : 'Add to Library'}
@@ -485,6 +496,8 @@ export default function MetadataPage() {
                   >
                     <CheckCircle2 size={14} /> Mark as Watched
                   </button>
+                  <button onClick={() => handleCategoryPick('WATCHING')} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-white/5">Sedang ditonton</button>
+                  <button onClick={() => handleCategoryPick('DROPPED')} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-white/5">Berhenti</button>
                   <div className="border-t border-white/5 my-1" />
                   <button
                     onClick={() => {

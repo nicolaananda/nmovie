@@ -8,6 +8,7 @@ import { featuredService } from '../services/featuredService';
 import ContentCard from '../components/ContentCard';
 import ContentCardSkeleton from '../components/ContentCardSkeleton';
 import ContinueWatching from '../components/ContinueWatching';
+import WatchPicker from '../components/WatchPicker';
 import ErrorMessage from '../components/ErrorMessage';
 import type { StreamingContent } from '../types/metadata';
 
@@ -141,10 +142,10 @@ export default function HomePage() {
           <div className="space-y-4 animate-slide-up">
             <div className="flex items-center space-x-3 mb-2">
               <div className="px-3 py-1 bg-primary-600/90 backdrop-blur-md rounded-md text-white text-xs font-bold tracking-wider uppercase shadow-lg shadow-primary-900/40">
-                {hero?.badge ?? 'N-Movie Exclusive'}
+                {hero?.badge ?? 'Pilihan tontonan'}
               </div>
               <span className="text-gray-300 text-sm font-medium tracking-wide uppercase px-2 border-l border-gray-600">
-                Series
+                {hero?.type === "movie" ? "Film" : "Serial"}
               </span>
             </div>
 
@@ -155,13 +156,7 @@ export default function HomePage() {
             {/* Meta info row */}
             {hero && (
               <div className="flex items-center space-x-6 text-gray-200 text-base font-medium">
-                <div className="flex items-center space-x-2 text-green-400">
-                  <span className="font-bold">{t('home.percentMatch', { value: 98 })}</span>
-                </div>
-                <span className="text-gray-400">•</span>
-                <span>2024</span>
-                <span className="text-gray-400">•</span>
-                <span className="border border-gray-500/50 px-2 py-0.5 rounded text-xs bg-black/20 backdrop-blur-sm">4K Ultra HD</span>
+                <span className="text-sm text-gray-300">Lihat detail untuk informasi dan sumber tontonan.</span>
               </div>
             )}
           </div>
@@ -196,6 +191,7 @@ export default function HomePage() {
       <section className="space-y-16 px-6 md:px-16 -mt-32 relative z-10">
         {/* Continue Watching - Only show for logged in users */}
         {user && <ContinueWatching />}
+        <WatchPicker />
 
         {/* Personal recommendations - only when we have results */}
         {user && recommendations.data && recommendations.data.length > 0 && (

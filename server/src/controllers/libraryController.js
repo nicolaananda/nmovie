@@ -1,6 +1,6 @@
 const prisma = require('../prisma');
 
-const VALID_CATEGORIES = ['WATCHLIST', 'FAVORITE', 'WATCHED'];
+const VALID_CATEGORIES = ['WATCHLIST', 'FAVORITE', 'WATCHED', 'WATCHING', 'DROPPED'];
 
 function normalizeCategory(value) {
     if (!value) return undefined;

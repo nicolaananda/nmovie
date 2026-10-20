@@ -5,7 +5,7 @@ import { useToast } from './ToastContext';
 import { StreamingContent } from '../types/metadata';
 import { StreamingAddon } from '../types/catalog';
 
-export type LibraryCategory = 'WATCHLIST' | 'FAVORITE' | 'WATCHED';
+export type LibraryCategory = 'WATCHLIST' | 'FAVORITE' | 'WATCHED' | 'WATCHING' | 'DROPPED';
 
 export interface LibraryEntry extends StreamingContent {
   category: LibraryCategory;
@@ -26,6 +26,7 @@ interface CatalogContextProps {
 const CatalogContext = createContext<CatalogContextProps | undefined>(undefined);
 
 interface RawLibraryItem {
+  addedAt?: string;
   tmdbId: string;
   type: string;
   name: string;
@@ -64,6 +65,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         name: item.name,
         poster: item.poster,
         category: item.category ?? 'WATCHLIST',
+        addedToLibraryAt: item.addedAt ? new Date(item.addedAt).getTime() : 0,
       }));
 
       setLibrary(mappedLibrary);
@@ -84,6 +86,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     // re-add with a new category moves the item between buckets).
     const optimistic: LibraryEntry = {
       ...content,
+      addedToLibraryAt: Date.now(),
       category,
     } as LibraryEntry;
     setLibrary((prev) => {

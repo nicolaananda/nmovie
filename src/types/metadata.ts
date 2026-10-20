@@ -130,6 +130,10 @@ export interface StreamingContent {
   imdbRating?: string;
   year?: number;
   genres?: string[];
+  genreIds?: number[];
+  popularity?: number;
+  status?: string;
+  nextEpisode?: { season_number: number; episode_number: number; air_date: string };
   description?: string;
   runtime?: string;
   released?: string;

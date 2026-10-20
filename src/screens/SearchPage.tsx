@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { filterSearch } from '../utils/discovery';
 import { useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -42,30 +43,6 @@ const LANGUAGES = [
   { code: 'de', label: 'German' },
 ];
 
-// TMDB has separate genre lists for movie/tv but the IDs that overlap are fine.
-// We use the combined movie list here; users picking a TV-only genre is rare
-// and the API silently ignores unknown IDs.
-const COMMON_GENRES = [
-  { id: '28', label: 'Action' },
-  { id: '12', label: 'Adventure' },
-  { id: '16', label: 'Animation' },
-  { id: '35', label: 'Comedy' },
-  { id: '80', label: 'Crime' },
-  { id: '99', label: 'Documentary' },
-  { id: '18', label: 'Drama' },
-  { id: '10751', label: 'Family' },
-  { id: '14', label: 'Fantasy' },
-  { id: '36', label: 'History' },
-  { id: '27', label: 'Horror' },
-  { id: '10402', label: 'Music' },
-  { id: '9648', label: 'Mystery' },
-  { id: '10749', label: 'Romance' },
-  { id: '878', label: 'Sci-Fi' },
-  { id: '53', label: 'Thriller' },
-  { id: '10752', label: 'War' },
-  { id: '37', label: 'Western' },
-];
-
 function buildYears(): string[] {
   const now = new Date().getFullYear();
   const years: string[] = [];
@@ -101,6 +78,7 @@ export default function SearchPage() {
     };
   });
   const [showFilters, setShowFilters] = useState(false);
+  const genreOptions = useQuery({queryKey:['search-genres',filters.type],queryFn:async()=>{const lists=await Promise.all((filters.type==='all'?['movie','tv']:[filters.type]).map(type=>tmdbService.getGenres(type as 'movie'|'tv')));return Array.from(new Map(lists.flat().map(g=>[g.id,g])).values());}});
 
   // Debounce search query
   useEffect(() => {
@@ -171,15 +149,7 @@ export default function SearchPage() {
   // Build the displayed result set from whichever mode is active.
   const results: StreamingContent[] | undefined = useMemo(() => {
     if (hasQuery) {
-      let list = search.data ?? [];
-      if (filters.type === 'movie') list = list.filter((c) => c.type === 'movie');
-      if (filters.type === 'tv') list = list.filter((c) => c.type === 'series');
-      if (filters.year) {
-        list = list.filter((c) => c.year && String(c.year) === filters.year);
-      }
-      // Other filters (genre, language) aren't reliably present on /search/multi
-      // results, so we skip them in query mode rather than dropping items.
-      return list;
+      return filterSearch(search.data ?? [], filters);
     }
     if (!hasFilters) return undefined;
     const movies = filters.type !== 'tv' ? (discoverMovies.data ?? []) : [];
@@ -275,6 +245,7 @@ export default function SearchPage() {
             <FiltersBody
               t={t}
               filters={filters}
+              genres={genreOptions.data || []}
               updateFilter={updateFilter}
             />
           </div>
@@ -292,6 +263,7 @@ export default function SearchPage() {
             <FiltersBody
               t={t}
               filters={filters}
+              genres={genreOptions.data || []}
               updateFilter={updateFilter}
             />
           </div>
@@ -316,6 +288,7 @@ export default function SearchPage() {
         </BottomSheet>
       </div>
 
+      {hasQuery && <p className="text-sm text-gray-400 mb-4">Filter dan urutan diterapkan pada hasil pencarian yang dimuat dari TMDB.</p>}
       {/* Results */}
       <div className="max-w-8xl mx-auto">
         {isLoading ? (
@@ -331,7 +304,7 @@ export default function SearchPage() {
             {results && results.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 animate-slide-up">
                 {results.map((item) => (
-                  <div key={item.id} className="transition-transform duration-300 hover:-translate-y-2">
+                  <div key={`${item.type}:${item.id}`} className="transition-transform duration-300 hover:-translate-y-2">
                     <ContentCard content={item} />
                   </div>
                 ))}
@@ -384,10 +357,11 @@ function FilterSelect({ label, value, onChange, options }: FilterSelectProps) {
 interface FiltersBodyProps {
   t: (key: string, vars?: Record<string, string | number>) => string;
   filters: Filters;
+  genres: {id:number;name:string}[];
   updateFilter: <K extends keyof Filters>(key: K, value: Filters[K]) => void;
 }
 
-function FiltersBody({ t, filters, updateFilter }: FiltersBodyProps) {
+function FiltersBody({ t, filters, genres, updateFilter }: FiltersBodyProps) {
   return (
     <>
       <FilterSelect
@@ -415,7 +389,7 @@ function FiltersBody({ t, filters, updateFilter }: FiltersBodyProps) {
         onChange={(v) => updateFilter('genreId', v)}
         options={[
           { value: '', label: t('search.allGenres') },
-          ...COMMON_GENRES.map((g) => ({ value: g.id, label: g.label })),
+          ...genres.map((g) => ({ value: String(g.id), label: g.name })),
         ]}
       />
       <FilterSelect

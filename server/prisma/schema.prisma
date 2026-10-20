@@ -70,6 +70,8 @@ model User {
   activityLogs        ActivityLog[]
   devices             UserDevice[]
   customSubtitles     CustomSubtitle[]
+  reports             ContentReport[]
+  follows             SeriesFollow[]
 }
 
 model SubscriptionPlan {
@@ -89,6 +91,8 @@ enum LibraryCategory {
   WATCHLIST
   FAVORITE
   WATCHED
+  WATCHING
+  DROPPED
 }
 
 model LibraryItem {
@@ -135,6 +139,7 @@ model Notification {
   type        NotificationType
   title       String
   message     String
+  href        String?
   isRead      Boolean          @default(false)
   createdAt   DateTime         @default(now())
 
@@ -220,4 +225,33 @@ model FeaturedContent {
   updatedAt   DateTime @updatedAt
 
   @@index([isActive, startsAt, endsAt])
+}
+
+model ContentReport {
+ id Int @id @default(autoincrement())
+ userId Int
+ user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+ tmdbId String
+ mediaType String
+ title String
+ reason String
+ message String
+ season Int?
+ episode Int?
+ status String @default("NEW")
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([status, createdAt])
+}
+model SeriesFollow {
+ id Int @id @default(autoincrement())
+ userId Int
+ user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+ tmdbId String
+ title String
+ lastEpisode String?
+ checkedAt DateTime @default(now())
+ createdAt DateTime @default(now())
+ @@unique([userId, tmdbId])
+ @@index([checkedAt])
 }

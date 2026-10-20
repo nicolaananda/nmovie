@@ -38,9 +38,9 @@ class TMDBService {
     }
   }
 
-  async getGenres(): Promise<{ id: number; name: string }[]> {
+  async getGenres(mediaType: 'movie' | 'tv' = 'movie'): Promise<{ id: number; name: string }[]> {
     try {
-      const response = await this.api.get('/genre/movie/list');
+      const response = await this.api.get(`/genre/${mediaType}/list`);
       // Normalize to common shape
       return response.data.genres || [];
     } catch (error) {
@@ -59,7 +59,7 @@ class TMDBService {
         .map((item: any) => this.transformToStreamingContent(item, item.media_type));
     } catch (error) {
       console.error('Error searching content:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -101,7 +101,7 @@ class TMDBService {
       return response.data.results.map((item: any) => this.transformToStreamingContent(item, mediaType));
     } catch (error) {
       console.error('Error discovering content:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -142,6 +142,11 @@ class TMDBService {
       year: item.release_date ? new Date(item.release_date).getFullYear() :
         item.first_air_date ? new Date(item.first_air_date).getFullYear() : undefined,
       genres: item.genres?.map((g: any) => g.name) || [],
+      genreIds: item.genre_ids || item.genres?.map((g: any) => g.id) || [],
+      popularity: item.popularity,
+      status: item.status,
+      nextEpisode: item.next_episode_to_air,
+      trailerStreams: (item.videos?.results || []).filter((v: any) => v.site === 'YouTube' && v.type === 'Trailer' && /^[\w-]{11}$/.test(v.key)),
       description: item.overview,
       runtime: item.runtime ? `${item.runtime} min` : undefined,
       released: item.release_date || item.first_air_date,

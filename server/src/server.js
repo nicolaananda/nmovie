@@ -9,6 +9,7 @@ async function start() {
         // Test DB connection
         await prisma.$connect();
         console.log('✅ Connected to database');
+        require('./episodeNotifications').startEpisodeChecks();
 
         app.listen(PORT, () => {
             console.log(`🚀 Nuvio Server running on http://localhost:${PORT}`);
