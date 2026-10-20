@@ -4,6 +4,7 @@ import { AlertCircle, Film, Tv, Bookmark, Heart, CheckCircle2 } from 'lucide-rea
 import { useMemo, useState } from 'react';
 import { useT } from '../i18n/I18nContext';
 
+import FollowedSeries from '../components/FollowedSeries';
 import EmptyState from '../components/EmptyState';
 import { Library } from 'lucide-react';
 import ContentCardSkeleton from '../components/ContentCardSkeleton';
@@ -47,6 +48,7 @@ export default function LibraryPage() {
         <p className="text-gray-400">{t('library.emptyDesc')}</p>
       </div>
 
+      <FollowedSeries />
       {/* Category tabs (Watchlist / Favorites / Watched) */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4 hide-scrollbar">
         {categoryTabs.map((tab) => {

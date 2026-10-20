@@ -1,4 +1,4 @@
-import AiAssistant from '../components/AiAssistant';
+
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTrendingContent, usePopularContent, useGenreContent } from '../hooks/useContent';
@@ -193,7 +193,7 @@ export default function HomePage() {
         {/* Continue Watching - Only show for logged in users */}
         {user && <ContinueWatching />}
         <WatchPicker />
-        <AiAssistant />
+        <button onClick={()=>navigate("/search")} className="w-full rounded-2xl border border-white/10 bg-white/5 p-5 text-left text-gray-300">Cari judul, suasana, atau adegan yang kamu ingat →</button>
 
         {/* Personal recommendations - only when we have results */}
         {user && recommendations.data && recommendations.data.length > 0 && (

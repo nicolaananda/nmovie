@@ -16,6 +16,7 @@ import {
 import SubscriptionPlanManager from '../components/admin/SubscriptionPlanManager';
 import CustomSubtitleManager from '../components/admin/CustomSubtitleManager';
 import FeaturedManager from '../components/admin/FeaturedManager';
+import AiStats from '../components/admin/AiStats';
 import WorkInbox from '../components/admin/WorkInbox';
 import { BarChart, HorizontalBars } from '../components/admin/Charts';
 import { useToast } from '../contexts/ToastContext';
@@ -270,6 +271,7 @@ export default function EnhancedAdminDashboard() {
           </div>
         )}
 
+        <AiStats />
         <WorkInbox onUsers={()=>{setActiveTab("users");setStatusFilter("PENDING");}} onSubtitles={()=>setActiveTab("subtitles")} />
         {/* Tabs */}
         <div className="flex gap-2 mb-8 overflow-x-auto">
