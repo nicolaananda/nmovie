@@ -1,3 +1,4 @@
+import AiAssistant from '../components/AiAssistant';
 import { useState, useEffect, useMemo } from 'react';
 import { filterSearch } from '../utils/discovery';
 import { useSearchParams } from 'react-router-dom';
@@ -289,6 +290,7 @@ export default function SearchPage() {
       </div>
 
       {hasQuery && <p className="text-sm text-gray-400 mb-4">Filter dan urutan diterapkan pada hasil pencarian yang dimuat dari TMDB.</p>}
+      <div className="max-w-7xl mx-auto mb-8"><AiAssistant /></div>
       {/* Results */}
       <div className="max-w-8xl mx-auto">
         {isLoading ? (

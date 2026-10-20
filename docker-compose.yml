@@ -40,6 +40,14 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://ghzm.us,https://www.ghzm.us,http://localhost:7781}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TMDB_API_KEY: ${VITE_TMDB_API_KEY:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY:-}
+      AI_BASE_URL: https://9router.nicola.id/v1
+      AI_MODEL: cx/gpt-5.4-mini
+      AI_FALLBACK_MODEL: cx/gpt-6-sol
+      AI_CACHE_DIR: /app/cache/ai
+    volumes:
+      - nmovie_ai_cache:/app/cache/ai
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,4 +71,5 @@ services:
       - backend
 
 volumes:
+  nmovie_ai_cache:
   nmovie_postgres_data:

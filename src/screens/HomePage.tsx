@@ -1,3 +1,4 @@
+import AiAssistant from '../components/AiAssistant';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTrendingContent, usePopularContent, useGenreContent } from '../hooks/useContent';
@@ -192,6 +193,7 @@ export default function HomePage() {
         {/* Continue Watching - Only show for logged in users */}
         {user && <ContinueWatching />}
         <WatchPicker />
+        <AiAssistant />
 
         {/* Personal recommendations - only when we have results */}
         {user && recommendations.data && recommendations.data.length > 0 && (

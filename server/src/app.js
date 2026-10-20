@@ -57,6 +57,7 @@ app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/watch-history', require('./routes/watchHistoryRoutes'));
 app.use('/api/custom-subtitles', require('./routes/customSubtitleRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes'));
 app.use('/api/featured', require('./routes/featuredRoutes'));
 app.use('/api/workflows', require('./routes/workflowRoutes'));
 

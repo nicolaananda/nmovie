@@ -1,3 +1,4 @@
+import AiAssistant from '../components/AiAssistant';
 import ShareMovie from '../components/ShareMovie';
 import ContentActions from '../components/ContentActions';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -516,6 +517,7 @@ export default function MetadataPage() {
 
         {/* RIGHT COLUMN: Details */}
         <div className="flex-1 space-y-8 pt-4">
+          <AiAssistant key={String(tmdbId)} id={tmdbId} type={mediaType} />
           {/* Header Info */}
           <div className="space-y-4">
             <h1 className="text-4xl md:text-6xl font-black text-white leading-tight drop-shadow-xl">
