@@ -9,7 +9,7 @@ import { featuredService } from '../services/featuredService';
 import ContentCard from '../components/ContentCard';
 import ContentCardSkeleton from '../components/ContentCardSkeleton';
 import ContinueWatching from '../components/ContinueWatching';
-import WatchPicker from '../components/WatchPicker';
+
 import ErrorMessage from '../components/ErrorMessage';
 import type { StreamingContent } from '../types/metadata';
 
@@ -192,8 +192,7 @@ export default function HomePage() {
       <section className="space-y-16 px-6 md:px-16 -mt-32 relative z-10">
         {/* Continue Watching - Only show for logged in users */}
         {user && <ContinueWatching />}
-        <WatchPicker />
-        <button onClick={()=>navigate("/search")} className="w-full rounded-2xl border border-white/10 bg-white/5 p-5 text-left text-gray-300">Cari judul, suasana, atau adegan yang kamu ingat →</button>
+
 
         {/* Personal recommendations - only when we have results */}
         {user && recommendations.data && recommendations.data.length > 0 && (
