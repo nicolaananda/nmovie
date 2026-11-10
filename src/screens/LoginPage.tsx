@@ -2,6 +2,16 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import axios from 'axios';
+
+function loginErrorMessage(error: unknown) {
+    if (!axios.isAxiosError(error)) return 'Login failed. Please try again.';
+    if (!error.response) return 'Cannot reach the server. Check your connection and try again.';
+    if (error.response.status === 401) return 'Invalid email or password.';
+    if (error.response.status === 429) return 'Too many login attempts. Try again in 15 minutes.';
+    if (error.response.status >= 500) return 'Login service is temporarily unavailable.';
+    return (error.response.data as { error?: string })?.error || 'Login failed. Please try again.';
+}
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -19,8 +29,8 @@ export default function LoginPage() {
         try {
             await login(email, password);
             navigate('/');
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to login');
+        } catch (err: unknown) {
+            setError(loginErrorMessage(err));
         } finally {
             setLoading(false);
         }

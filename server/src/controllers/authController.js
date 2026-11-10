@@ -14,7 +14,7 @@ const generateToken = (id) => {
 exports.register = async (req, res) => {
     // Sanitize inputs
     const rawName = (req.body.name || '').toString().trim();
-    const rawEmail = (req.body.email || '').toString().trim();
+    const rawEmail = (req.body.email || '').toString().trim().toLowerCase();
     const rawPassword = (req.body.password || '').toString().trim();
 
     try {
@@ -119,7 +119,8 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-    const { email, password } = req.body;
+    const email = (req.body.email || '').toString().trim().toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
 
     try {
         const user = await prisma.user.findUnique({
@@ -159,10 +160,11 @@ exports.login = async (req, res) => {
                 token: generateToken(user.id),
             });
         } else {
+            logger.warn('Login rejected', { email, ip: req.ip, status: 401 });
             res.status(401).json({ error: 'Invalid email or password' });
         }
     } catch (error) {
-        logger.error('Login error', { error: error.message });
+        logger.error('Login error', { error: error.message, email, ip: req.ip, status: 500 });
         res.status(500).json({ error: 'Server error' });
     }
 };

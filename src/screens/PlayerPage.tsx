@@ -25,17 +25,20 @@ export default function PlayerPage() {
   const [cssFull, setCssFull] = useState(false);
   const playerRef = useRef<ReactPlayer>(null);
   const embedContainerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const advancedRef = useRef(false);
 
   // The address bar carries an opaque token (`?t=...`) when the user
   // arrives via the in-app navigation. The actual stream URL and other
   // payload live in sessionStorage so the URL doesn't leak the source.
   // For backward compat (external links, older bookmarks), we still
   // accept the legacy `?url=...&title=...` params.
+  const token = searchParams.get('t');
   const payload = useMemo(() => {
-    const token = searchParams.get('t');
     if (token) return readPlayerPayload(token);
     return null;
-  }, [searchParams]);
+  }, [searchParams, token]);
+  const tokenUnavailable = Boolean(token && !payload);
 
   const effectiveUrl = payload?.url ?? searchParams.get('url');
   const effectiveType = payload?.type ?? searchParams.get('type');
@@ -73,7 +76,9 @@ export default function PlayerPage() {
     return subtitlesJson;
   }, [payload, subtitlesJson]);
 
-  const isVidrockEmbed = effectiveType === 'embed' && (effectiveUrl?.includes('vidrock.net') ?? false);
+  const isVidrockEmbed = effectiveType === 'embed' && (() => {
+    try { return validatedUrl ? new URL(validatedUrl).origin === 'https://vidrock.net' : false; } catch { return false; }
+  })();
 
   const { ready: progressSeeded } = useVidrockProgress({
     tmdbId,
@@ -104,25 +109,32 @@ export default function PlayerPage() {
   const [countdown, setCountdown] = useState(10);
   const [autoPlayCancelled, setAutoPlayCancelled] = useState(false);
 
+  const goToNextEpisode = useCallback(() => {
+    if (!nextEpisode || autoPlayCancelled || advancedRef.current) return;
+    advancedRef.current = true;
+    const params = new URLSearchParams({ season: String(nextEpisode.seasonNumber), episode: String(nextEpisode.episodeNumber) });
+    navigate(`/metadata/series/${tmdbId}?${params.toString()}`);
+  }, [navigate, tmdbId, nextEpisode, autoPlayCancelled]);
+
+  useEffect(() => { advancedRef.current = false; }, [validatedUrl, season, episode]);
+
   useEffect(() => {
     if (!isVidrockEmbed || !tmdbId) return;
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== 'https://vidrock.net') return;
-      if (event.data?.type === 'PLAYER_EVENT') {
-        const { currentTime, duration } = event.data.data;
-        if (typeof currentTime === 'number') {
-          setVidrockTime(currentTime);
-        }
-        if (typeof duration === 'number' && duration > 0) {
-          setVidrockDuration(duration);
-        }
-      }
+      if (event.origin !== 'https://vidrock.net' || event.source !== iframeRef.current?.contentWindow) return;
+      if (!event.data || typeof event.data !== 'object' || Array.isArray(event.data) || event.data.type !== 'PLAYER_EVENT') return;
+      const data = event.data.data;
+      if (!data || typeof data !== 'object' || Array.isArray(data)) return;
+      const { currentTime, duration, event: playerEvent, state } = data as Record<string, unknown>;
+      if (Number.isFinite(currentTime) && (currentTime as number) >= 0) setVidrockTime(currentTime as number);
+      if (Number.isFinite(duration) && (duration as number) > 0) setVidrockDuration(duration as number);
+      if (playerEvent === 'ended' || state === 'ended') goToNextEpisode();
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [isVidrockEmbed, tmdbId]);
+  }, [isVidrockEmbed, tmdbId, goToNextEpisode]);
 
   // Decide when to surface the "next episode" overlay. We show it during
   // the last 30 seconds (or 5% of duration, whichever is shorter) of the
@@ -142,19 +154,6 @@ export default function PlayerPage() {
       setShowNextOverlay(false);
     }
   }, [nextEpisode, vidrockDuration, vidrockTime, autoPlayCancelled]);
-
-  const goToNextEpisode = useCallback(() => {
-    if (!nextEpisode) return;
-    // Navigate to the metadata page of the same series with the new
-    // season/episode pre-selected via search params. The user picks the
-    // source; we don't auto-launch the iframe to keep behavior predictable
-    // when stream URLs differ between episodes.
-    const params = new URLSearchParams({
-      season: String(nextEpisode.seasonNumber),
-      episode: String(nextEpisode.episodeNumber),
-    });
-    navigate(`/metadata/series/${tmdbId}?${params.toString()}`);
-  }, [navigate, tmdbId, nextEpisode]);
 
   // When the countdown reaches 0, jump.
   useEffect(() => {
@@ -214,11 +213,17 @@ export default function PlayerPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const allowedTypes = ['', 'text/plain', 'application/x-subrip', 'application/octet-stream'];
+    if (!file.name.toLowerCase().endsWith('.srt') || !allowedTypes.includes(file.type)) { setUploadStatus('Only SRT files are supported'); e.target.value = ''; return; }
+    if (file.size === 0 || file.size > 2 * 1024 * 1024) { setUploadStatus('Subtitle must be smaller than 2 MB'); e.target.value = ''; return; }
+
     const reader = new FileReader();
     reader.onload = async (ev) => {
-      const content = ev.target?.result as string;
-      if (!content) return;
-      const cues = parseSrt(content);
+      const content = ev.target?.result;
+      if (typeof content !== 'string') { setUploadStatus('Could not read subtitle'); return; }
+      let cues: SubtitleCue[];
+      try { cues = parseSrt(content); } catch { setUploadStatus('Invalid SRT subtitle'); return; }
+      if (cues.length === 0) { setUploadStatus('Invalid or empty SRT subtitle'); return; }
       setSrtCues(cues);
       setSrtFileName(file.name);
 
@@ -249,6 +254,7 @@ export default function PlayerPage() {
         }
       }
     };
+    reader.onerror = () => setUploadStatus('Could not read subtitle');
     reader.readAsText(file);
 
     e.target.value = '';
@@ -470,7 +476,7 @@ export default function PlayerPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".srt,.vtt"
+                accept=".srt,application/x-subrip,text/plain"
                 onChange={handleSrtUpload}
                 className="hidden"
               />
@@ -634,6 +640,7 @@ export default function PlayerPage() {
               >
                 {progressSeeded ? (
                   <iframe
+                    ref={iframeRef}
                     src={validatedUrl}
                     className="w-full h-full border-0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
@@ -702,6 +709,7 @@ export default function PlayerPage() {
                   height="100%"
                   onPlay={() => setPlaying(true)}
                   onPause={() => setPlaying(false)}
+                  onEnded={goToNextEpisode}
                   config={{
                     file: {
                       tracks,
@@ -729,12 +737,11 @@ export default function PlayerPage() {
               <AlertCircle size={48} className="opacity-50" />
             </div>
             <p className="text-xl font-medium text-white">
-              {effectiveUrl ? 'This stream link is no longer valid' : 'No video source provided'}
+              {tokenUnavailable ? 'This player link has expired' : effectiveUrl ? 'This stream link is no longer valid' : 'No video source provided'}
             </p>
-            {effectiveUrl && (
+            {(effectiveUrl || tokenUnavailable) && (
               <p className="text-sm text-gray-500 leading-relaxed">
-                The cached link may have expired or the host is not on the
-                allowed list. Pick a fresh source from the metadata page.
+                {tokenUnavailable ? 'Player links only work in the tab where playback started. Return to the title and choose a source again.' : 'The cached link may have expired or the host is not on the allowed list. Pick a fresh source from the metadata page.'}
               </p>
             )}
             <div className="flex gap-2">
@@ -750,6 +757,9 @@ export default function PlayerPage() {
                 >
                   Pick a source
                 </button>
+              )}
+              {!tmdbId && (
+                <button onClick={() => navigate('/')} className="px-6 py-2 rounded-lg bg-primary-600 text-white text-sm font-bold hover:bg-primary-700">Browse titles</button>
               )}
               <button
                 onClick={() => navigate(-1)}

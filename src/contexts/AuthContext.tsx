@@ -47,13 +47,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
-        const { data } = await apiClient.post<LoginResponse>('/auth/login', { email, password });
+        const { data } = await apiClient.post<LoginResponse>('/auth/login', { email: email.trim().toLowerCase(), password });
         localStorage.setItem('token', data.token);
         setUser(data);
     };
 
     const register = async (name: string, email: string, password: string) => {
-        const { data } = await apiClient.post<LoginResponse>('/auth/register', { name, email, password });
+        const { data } = await apiClient.post<LoginResponse>('/auth/register', { name, email: email.trim().toLowerCase(), password });
         localStorage.setItem('token', data.token);
         setUser(data);
         // Return the user data to caller so the UI can react to status (PENDING/APPROVED)

@@ -9,6 +9,16 @@ exports.upload = async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
+        if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > 2 * 1024 * 1024) {
+            return res.status(413).json({ error: 'Subtitle must be an SRT file smaller than 2 MB' });
+        }
+        if (typeof fileName !== 'string' || !fileName.toLowerCase().endsWith('.srt')) {
+            return res.status(400).json({ error: 'Only SRT subtitles are supported' });
+        }
+        if (!/\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{3}/.test(content)) {
+            return res.status(400).json({ error: 'Invalid or empty SRT subtitle' });
+        }
+
         const subtitle = await prisma.customSubtitle.create({
             data: {
                 userId: req.user.id,

@@ -12,7 +12,10 @@ const apiLimiter = rateLimit({
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 15,
-    message: 'Too many login attempts, please try again later.',
+    handler: (req, res) => {
+        require('../utils/logger').warn('Auth rate limit exceeded', { ip: req.ip, path: req.path, status: 429 });
+        res.status(429).json({ error: 'Too many login attempts, please try again later.' });
+    },
     skipSuccessfulRequests: true,
 });
 
